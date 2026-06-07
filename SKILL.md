@@ -1,6 +1,6 @@
 ---
 name: yazi-windows-rescue
-description: Diagnose, clean up, and correctly reinstall the yazi file manager on Windows when a previous (often messy, AI-assisted) installation left it unusable. Use this skill WHENEVER the user mentions that yazi was installed but won't run, won't open, can't be found, has no file previews, throws TOML parse errors, or "Claude/Claude Code installed yazi and it's broken." Also trigger if the user says yazi was set up for them and they don't know how, or asks to clean up and reinstall yazi from scratch on Windows. This skill enforces a strict, stop-and-confirm, scoop-based reinstall procedure and must be followed exactly, step by step, without improvising.
+description: Diagnose, clean up, and correctly reinstall the yazi file manager on Windows when a previous (often messy, AI-assisted) installation left it unusable. Use this skill WHENEVER the user mentions that yazi was installed but won't run, won't open, can't be found, has no file previews, throws TOML parse errors, or "Claude/Claude Code installed yazi and it's broken." Also trigger if the user says yazi was set up for them and they don't know how, or asks to clean up and reinstall yazi from scratch on Windows. The goal is an out-of-the-box working setup — preview dependencies are installed automatically (skipped if already present), and config is kept deliberately minimal. Enforces a strict, stop-and-confirm, scoop-based procedure that must be followed exactly without improvising.
 ---
 
 # Yazi Windows Rescue
@@ -167,18 +167,52 @@ Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 ```
 Then re-run the check and confirm scoop is found before continuing.
 
-**4b. Install yazi and its preview dependencies in one go:**
+**4b. Check which dependencies are already present, then install only what's missing.**
+
+yazi needs a small set of companion tools for full out-of-the-box previews. The goal here is "works out of the box" — but if a dependency is already installed and working, there's no need to reinstall it. First detect what's already there:
+
+```powershell
+$deps = @{
+    "yazi"       = "the file manager itself"
+    "fd"         = "file search inside yazi"
+    "magick"     = "image previews (ImageMagick)"
+    "ffmpeg"     = "video thumbnail previews"
+    "pdftoppm"   = "PDF previews (Poppler)"
+    "jq"         = "JSON pretty previews"
+    "git"        = "provides file.exe for MIME detection (step 4d)"
+}
+foreach ($cmd in $deps.Keys) {
+    $found = Get-Command $cmd -ErrorAction SilentlyContinue
+    if ($found) { "OK   $cmd  -> $($found.Source)" }
+    else        { "MISSING  $cmd  ($($deps[$cmd]))" }
+}
+```
+
+Read the output to the user in plain language: list what's already OK and what's missing. Then install **only the missing ones**. The scoop package names are: `yazi`, `fd`, `imagemagick` (provides `magick`), `ffmpeg`, `poppler` (provides `pdftoppm`), `jq`, `git`.
+
+For example, if only ImageMagick and Poppler are missing:
+```powershell
+scoop install imagemagick poppler
+```
+
+If you're unsure or several are missing, it is safe to just install the full set — scoop skips anything already installed, it won't reinstall or break working tools:
 ```powershell
 scoop install yazi fd imagemagick ffmpeg poppler jq git
 ```
-(`git` is included because we need the `file.exe` it bundles for step 4d.)
+
+Either way, tell the user which packages you're installing and why, before running it. Don't silently install a big list.
 
 **4c. Verify yazi installed:**
 ```powershell
 yazi --version
 ```
 
-**4d. Set the YAZI_FILE_ONE environment variable** — this is what makes file previews work on Windows. First find the exact path to git's file.exe:
+**4d. Set the YAZI_FILE_ONE environment variable** — this is what makes file previews work on Windows. First check whether it's already correctly set (if so, skip the rest of 4d):
+```powershell
+$existing = [Environment]::GetEnvironmentVariable("YAZI_FILE_ONE", "User")
+if ($existing -and (Test-Path $existing)) { "Already set and valid: $existing — skip the rest of 4d" } else { "Not set or invalid — continue with 4d" }
+```
+If it's already set and valid, tell the user it's fine and move on. Otherwise, find the exact path to git's file.exe:
 ```powershell
 $fileExe = "$env:USERPROFILE\scoop\apps\git\current\usr\bin\file.exe"
 if (Test-Path $fileExe) { "Found: $fileExe" } else { "NOT FOUND - report this to the user, do not guess another path." }
@@ -187,7 +221,7 @@ If found, set it (permanently, for this user):
 ```powershell
 [Environment]::SetEnvironmentVariable("YAZI_FILE_ONE", "$env:USERPROFILE\scoop\apps\git\current\usr\bin\file.exe", "User")
 ```
-Tell the user clearly: **"You must now close ALL PowerShell windows and open a new one — the setting only takes effect in a fresh window."** This is not optional; previews will not work until they reopen the terminal.
+Tell the user clearly: **"You must now close ALL PowerShell windows and open a new one — the setting only takes effect in a fresh window."** This is not optional; previews will not work until they reopen the terminal. (If 4d was skipped because the variable was already set, they still need a fresh window only if other changes in Phase 4 require it — but reopening never hurts.)
 
 **4e. Write the minimal, known-good config.** Do NOT write anything beyond this. Run it as one block:
 ```powershell

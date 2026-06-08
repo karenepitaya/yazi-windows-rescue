@@ -127,9 +127,9 @@ MIT
 
 # 中文说明
 
-> **仅限 Windows。** 本技能使用 PowerShell、Scoop 和 Windows 专属路径,不适用于 macOS 或 Linux。
+> **仅限 Windows。** 本 skill 使用 PowerShell、Scoop 和 Windows 专属路径,不适用于 macOS 或 Linux。
 
-一个 [Claude Code](https://code.claude.com) 技能,用于在 Windows 上 **诊断、清理并正确重装 [yazi](https://github.com/sxyazi/yazi) 文件管理器** —— 当之前(通常是 AI 帮忙)的安装把它弄坏了:打不开、无法运行、没有文件预览、或报 TOML 解析错误。
+一个 [Claude Code](https://code.claude.com) skill 用于在 Windows 上 **诊断、清理并正确重装 [yazi](https://github.com/sxyazi/yazi) 文件管理器** —— 当之前(通常是 AI 帮忙)的安装把它弄坏了:打不开、无法运行、没有文件预览、或报 TOML 解析错误。
 
 专为**非技术用户**设计:每一步都用平实的语言解释,删除任何东西前都会先请你确认,并且始终把最安全的选项设为推荐默认。
 
@@ -150,7 +150,7 @@ MIT
 - Windows 10 / 11
 - [Claude Code](https://code.claude.com)(命令行版)
 - `git`(用来下载本技能)
-- **PowerShell 7+(pwsh)**,用于安装步骤。如果你不清楚系统中是否安装没有也没关系 —— 技能会自动检测并引导你安装(诊断步骤可在系统自带的 PowerShell 5.1 上运行,所以你随便用哪个都能开始)。作为 [PowerShell 7](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.2) 的忠实布道者,必须说明：它对 UTF-8 / 中文的处理好得多,也避免了许多旧版本的坑,与新版的 [Windows Terminal](https://github.com/microsoft/terminal/releases/tag/v1.24.11321.0) 配合使用，是现代化终端体验增强的开始。
+- **PowerShell 7+(pwsh)**用于安装步骤。如果你不清楚系统中是否安装没有也没关系 —— skill 会自动检测并引导你安装(诊断步骤可在系统自带的 PowerShell 5.1 上运行,所以你随便用哪个都能开始)。作为 [PowerShell 7](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.2) 的忠实布道者,必须说明：它对 UTF-8 / 中文的处理好得多,也避免了许多旧版本的坑,与新版的 [Windows Terminal](https://github.com/microsoft/terminal/releases/tag/v1.24.11321.0) 配合使用，是现代化终端体验增强的开始。
 
 ## 安装与使用
 
@@ -158,7 +158,7 @@ MIT
 
 ### 方式 A —— 临时使用(推荐,用于一次性修复)
 
-这种方式能保持环境干净:技能只存在于一个临时文件夹里,用完后删掉该文件夹,不会有任何残留。
+这种方式能保持环境干净: skill 只存在于一个临时文件夹里,用完后删掉该文件夹,不会有任何残留。
 
 打开 **PowerShell**,**按顺序**执行:
 
@@ -167,7 +167,7 @@ MIT
 mkdir "$env:USERPROFILE\Desktop\yazi-fix"
 cd "$env:USERPROFILE\Desktop\yazi-fix"
 
-# 2. 把技能下载到该文件夹的「项目级技能」位置
+# 2. 把 skill 下载到该文件夹的「项目级技能」位置
 #    (路径必须正好是 .claude\skills\yazi-windows-rescue)
 git clone https://github.com/karenepitaya/yazi-windows-rescue.git ".claude\skills\yazi-windows-rescue"
 
@@ -175,7 +175,7 @@ git clone https://github.com/karenepitaya/yazi-windows-rescue.git ".claude\skill
 claude
 ```
 
-> **顺序很重要。** 必须先建好 `.claude\skills\...` 文件夹,*再*启动 Claude Code。Claude Code 只会识别「会话开始时就已存在」的新技能目录。如果先启动了 `claude`、之后才 clone,则需要重启它才能生效。
+> **顺序很重要。** 必须先建好 `.claude\skills\...` 文件夹,*再*启动 Claude Code。Claude Code 只会识别「会话开始时就已存在」的新 skill 目录。如果先启动了 `claude`、之后才 clone,则需要重启它才能生效。
 
 从该文件夹首次启动时,Claude Code 可能会询问你是否信任该工作区 —— 选择「是」(这是你自己的文件夹)。然后告诉 Claude Code 你的问题,例如:
 
@@ -207,16 +207,16 @@ git pull
 
 ## 两种启动方式
 
-安装好之后(上面两种方式皆可),有两种方式触发本技能:
+安装好之后(上面两种方式皆可),有两种方式触发此 skill :
 
-1. **直接描述问题** —— 例如「我的 yazi 打不开 / 没有预览」。Claude Code 会自动识别并启动本技能。
-2. **输入斜杠命令** `/yazi-windows-rescue` 然后回车。命令名来自技能的文件夹名,所以技能一装好就能用。开始输入 `/yazi` 时它会出现在自动补全菜单里。
+1. **直接描述问题** —— 例如「我的 yazi 打不开 / 没有预览」。Claude Code 会自动识别并启动此 skill。
+2. **输入斜杠命令** `/yazi-windows-rescue` 然后回车。命令名来自 skill 的文件夹名,所以 skill 一装好就能用。开始输入 `/yazi` 时它会出现在自动补全菜单里。
 
 两种方式效果完全相同。想要明确地手动启动时,斜杠命令很方便;如果记不住命令名,用平实的语言描述更省事。
 
 ## 工作原理(技能存放在哪)
 
-Claude Code 会从 `.claude/skills/<名字>/` 文件夹中查找技能。**个人级**技能放在 `~/.claude/skills/`,在任何地方都可用;**项目级**技能放在「你启动 Claude Code 所在文件夹」内的 `.claude/skills/`,且仅在该处生效。方式 A 用的就是临时文件夹内的项目级位置 —— 这就是删除该文件夹后不留任何残留的原因。
+Claude Code 会从 `.claude/skills/<名字>/` 文件夹中查找 skill。**个人级** skill 放在 `~/.claude/skills/`,在任何地方都可用;**项目级** skill 放在「你启动 Claude Code 所在文件夹」内的 `.claude/skills/`,且仅在该处生效。方式 A 用的就是临时文件夹内的项目级位置 —— 这就是删除该文件夹后不留任何残留的原因。
 
 ## 目录结构
 

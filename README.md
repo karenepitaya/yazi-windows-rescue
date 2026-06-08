@@ -150,7 +150,7 @@ MIT
 - Windows 10 / 11
 - [Claude Code](https://code.claude.com)(命令行版)
 - `git`(用来下载本技能)
-- **PowerShell 7+(pwsh)**用于安装步骤。如果你不清楚系统中是否安装没有也没关系 —— skill 会自动检测并引导你安装(诊断步骤可在系统自带的 PowerShell 5.1 上运行,所以你随便用哪个都能开始)。作为 [PowerShell 7](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.2) 的忠实布道者,必须说明：它对 UTF-8 / 中文的处理好得多,也避免了许多旧版本的坑,与新版的 [Windows Terminal](https://github.com/microsoft/terminal/releases/tag/v1.24.11321.0) 配合使用，是现代化终端体验增强的开始。
+- **PowerShell 7+(pwsh)** 用于安装步骤。如果你不清楚系统中是否安装没有也没关系 —— skill 会自动检测并引导你安装(诊断步骤可在系统自带的 PowerShell 5.1 上运行,所以你随便用哪个都能开始)。作为 [PowerShell 7](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.2) 的忠实布道者,必须说明：它对 UTF-8 / 中文的处理好得多,也避免了许多旧版本的坑,与新版的 [Windows Terminal](https://github.com/microsoft/terminal/releases/tag/v1.24.11321.0) 配合使用，是现代化终端体验增强的开始。
 
 ## 安装与使用
 

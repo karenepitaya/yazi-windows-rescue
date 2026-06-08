@@ -48,7 +48,7 @@ cd "$env:USERPROFILE\Desktop\yazi-fix"
 
 # 2. Download the skill INTO this folder's project-level skills location
 #    (the path must be exactly .claude\skills\yazi-windows-rescue)
-git clone https://github.com/<your-username>/yazi-windows-rescue.git ".claude\skills\yazi-windows-rescue"
+git clone https://github.com/karenepitaya/yazi-windows-rescue.git ".claude\skills\yazi-windows-rescue"
 
 # 3. NOW start Claude Code from inside this folder
 claude
@@ -72,7 +72,7 @@ Remove-Item "$env:USERPROFILE\Desktop\yazi-fix" -Recurse -Force
 Install into your personal skills folder so it is always available:
 
 ```powershell
-git clone https://github.com/<your-username>/yazi-windows-rescue.git "$env:USERPROFILE\.claude\skills\yazi-windows-rescue"
+git clone https://github.com/karenepitaya/yazi-windows-rescue.git "$env:USERPROFILE\.claude\skills\yazi-windows-rescue"
 ```
 
 Restart Claude Code, then run `/skills` to confirm `yazi-windows-rescue` is listed. Update later with:
@@ -81,6 +81,15 @@ Restart Claude Code, then run `/skills` to confirm `yazi-windows-rescue` is list
 cd "$env:USERPROFILE\.claude\skills\yazi-windows-rescue"
 git pull
 ```
+
+## Two ways to start it
+
+Once installed (either option above), there are two ways to trigger the skill:
+
+1. **Just describe the problem in plain language** — e.g. "my yazi won't open / has no previews." Claude Code recognizes it and starts the skill automatically.
+2. **Type the slash command** `/yazi-windows-rescue` and press Enter. The command name comes from the skill's folder name, so it works as soon as the skill is installed. Start typing `/yazi` and it appears in the autocomplete menu.
+
+Both do exactly the same thing. The slash command is handy when you want to start it deliberately; plain language is easier if you don't remember the name.
 
 ## How it works (where the skill lives)
 
@@ -157,7 +166,7 @@ cd "$env:USERPROFILE\Desktop\yazi-fix"
 
 # 2. 把技能下载到该文件夹的「项目级技能」位置
 #    (路径必须正好是 .claude\skills\yazi-windows-rescue)
-git clone https://github.com/<你的GitHub用户名>/yazi-windows-rescue.git ".claude\skills\yazi-windows-rescue"
+git clone https://github.com/karenepitaya/yazi-windows-rescue.git ".claude\skills\yazi-windows-rescue"
 
 # 3. 现在,从该文件夹内启动 Claude Code
 claude
@@ -181,7 +190,7 @@ Remove-Item "$env:USERPROFILE\Desktop\yazi-fix" -Recurse -Force
 装到你的「个人技能」文件夹,使其始终可用:
 
 ```powershell
-git clone https://github.com/<你的GitHub用户名>/yazi-windows-rescue.git "$env:USERPROFILE\.claude\skills\yazi-windows-rescue"
+git clone https://github.com/karenepitaya/yazi-windows-rescue.git "$env:USERPROFILE\.claude\skills\yazi-windows-rescue"
 ```
 
 重启 Claude Code,运行 `/skills` 确认列表中有 `yazi-windows-rescue`。以后更新:
@@ -190,6 +199,15 @@ git clone https://github.com/<你的GitHub用户名>/yazi-windows-rescue.git "$e
 cd "$env:USERPROFILE\.claude\skills\yazi-windows-rescue"
 git pull
 ```
+
+## 两种启动方式
+
+安装好之后(上面两种方式皆可),有两种方式触发本技能:
+
+1. **直接用平实的语言描述问题** —— 例如「我的 yazi 打不开 / 没有预览」。Claude Code 会自动识别并启动本技能。
+2. **输入斜杠命令** `/yazi-windows-rescue` 然后回车。命令名来自技能的文件夹名,所以技能一装好就能用。开始输入 `/yazi` 时它会出现在自动补全菜单里。
+
+两种方式效果完全相同。想要明确地手动启动时,斜杠命令很方便;如果记不住命令名,用平实的语言描述更省事。
 
 ## 工作原理(技能存放在哪)
 

@@ -18,6 +18,7 @@ Your job: **diagnose what exists → report it in plain language → cleanly rem
 4. **scoop is the only install method here.** Not winget, not cargo, not manual. If scoop is missing, install scoop first (Phase 4a). Never fall back to another method to "get around" a problem.
 5. **Keep config minimal.** The final config is the tiny one in Phase 4e. Never add `[plugin]`, `fetchers`, `previewers`, or `preloaders` — yazi's ~246 lines of defaults are correct, and bloated config is what breaks installs.
 6. **Never claim it's fixed without running Phase 5 verification.**
+7. **Whenever you need a decision or approval from the user, use the `AskUserQuestion` tool — never a plain-text question.** Present 2–4 short options, mark the safest one **(recommended)**, and let the user pick rather than type. This applies to every confirmation gate below. A plain prose question ("shall I continue?") is not acceptable where this skill calls for a choice — use the tool so it's a tap.
 
 ## How to treat the user (this is what makes the experience good)
 
@@ -46,7 +47,7 @@ Then use `AskUserQuestion` with scoop as the default:
 
 Proceed once they're on board.
 
-### >>> STOP. Wait for the user's go-ahead. <<<
+### >>> MANDATORY GATE. Use `AskUserQuestion` for the choice above and wait for the user's selection. Do NOT run anything in Phase 1 until they pick. <<<
 
 ## Phase 1 — Diagnose (read-only)
 
@@ -58,7 +59,7 @@ powershell -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\scripts\diagnose.p
 
 Ask them to paste the whole report back.
 
-### >>> STOP. Get the full report before continuing. <<<
+### >>> STOP. Get the full diagnosis report back from the user before continuing. Do not move to Phase 2 without it. <<<
 
 ## Phase 2 — Report findings and get approval to clean
 
@@ -70,7 +71,7 @@ Then use `AskUserQuestion` to get explicit approval, scoop as default:
 
 Explain that mixing install methods is what tends to cause this kind of breakage, so consolidating on scoop is the reliable fix.
 
-### >>> STOP. Nothing gets deleted until they approve. <<<
+### >>> MANDATORY APPROVAL GATE. This is the point of no return for deletion. Use `AskUserQuestion` for the approval above. Do NOT delete or uninstall ANYTHING until the user explicitly selects the cleanup option. <<<
 
 ## Phase 3 — Clean removal
 

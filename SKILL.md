@@ -1,6 +1,7 @@
 ---
 name: yazi-windows-rescue
 description: Diagnose, clean up, and correctly reinstall the yazi file manager on Windows when a previous (often AI-assisted) installation left it unusable. Use WHENEVER the user says yazi was installed but won't run / won't open / can't be found / has no file previews / throws TOML parse errors, or "Claude installed yazi and it's broken," or that yazi was set up for them and they don't know how, or asks to clean up and reinstall yazi from scratch on Windows. The goal is an out-of-the-box working setup — preview dependencies are installed automatically (skipped if already present), config is kept minimal, and the user is guided with plain-language explanations and recommended defaults at every step. Enforces a strict, stop-and-confirm, scoop-based procedure followed exactly, without improvising.
+compatibility: Windows 10/11. Diagnosis script works on any PowerShell; install scripts require PowerShell 7+ (pwsh). The skill guides users to install pwsh if missing.
 allowed-tools: Bash AskUserQuestion Read
 ---
 
@@ -60,6 +61,25 @@ powershell -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\scripts\diagnose.p
 Ask them to paste the whole report back.
 
 ### >>> STOP. Get the full diagnosis report back from the user before continuing. Do not move to Phase 2 without it. <<<
+
+## Phase 1.5 — Ensure PowerShell 7 (pwsh) before any install steps
+
+This skill standardizes on **PowerShell 7 (pwsh)** for the install steps, because it handles UTF-8 / Chinese text far better than the legacy Windows PowerShell 5.1 and avoids many quirks that cause exactly the breakage being fixed. The install scripts are written for pwsh and will gently refuse to run on 5.1.
+
+Read **Section 6 ("PowerShell 7+ detection")** of the diagnosis report from Phase 1, and act on it:
+
+- **Already running pwsh 7+** (report says "Already running PowerShell 7+") → good, continue to Phase 2.
+- **pwsh 7+ is installed but they're in 5.1** (report lists found locations) → tell the user, in plain terms: "You have the modern PowerShell 7 installed but aren't using it. Please open it (run `pwsh`, or find 'PowerShell 7' in the Start Menu) and we'll continue there." Have them re-launch into pwsh, then continue.
+- **pwsh 7+ NOT found** → this is the key guidance moment. Explain warmly why we want it (better UTF-8/Chinese handling, fewer legacy traps — the very problems they're dealing with), then use `AskUserQuestion` to offer, scoop as the recommended default:
+  - **"Install PowerShell 7 with scoop (recommended — matches the rest of this setup)"**
+  - "Install it with winget instead" → `winget install --id Microsoft.PowerShell`
+  - "Tell me more first"
+
+  **Sequencing note (important):** if they pick the scoop option but scoop isn't installed yet, install scoop FIRST (use the Phase 4a scoop-install block, including its failure handling), then run `scoop install pwsh`. In other words, when pwsh is missing, the order becomes: install scoop → `scoop install pwsh` → relaunch into pwsh → continue. If they pick winget, scoop can wait until Phase 4a. After pwsh is installed, have them start it (`pwsh`) and continue from there.
+
+Frame this as a one-time upgrade that will make their whole terminal life smoother, not a hoop to jump through. Be encouraging — many people are stuck on 5.1 simply because nobody told them 7 exists.
+
+### >>> MANDATORY GATE. Do not run the install scripts (Phase 4b onward) until the user is in pwsh 7. The scripts themselves will refuse on 5.1, so getting here first saves them a confusing detour. <<<
 
 ## Phase 2 — Report findings and get approval to clean
 
@@ -124,26 +144,25 @@ Failure handling:
 - If `Invoke-RestMethod` fails with a network error (Phase 1 showed no GitHub access), explain it's a network/proxy/firewall issue and have the user resolve connectivity, then retry. Do NOT switch to another install method.
 - After install, re-check `Get-Command scoop`. If still missing, have them close all PowerShell windows, open a fresh one, and re-check (PATH refresh). Confirm scoop works before 4b.
 
-**4b. Install only the dependencies that are missing.** Run the bundled script — it reports each dependency's status and installs only what's absent (scoop skips anything already there):
+**4b. Install only the dependencies that are missing.** Run the bundled script — it reports each dependency's status, installs only what's absent (scoop skips anything already there), and automatically attempts to set `YAZI_FILE_ONE`:
 ```powershell
-powershell -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\scripts\install-deps.ps1"
+pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\scripts\install-deps.ps1"
 ```
-Tell the user which packages it's installing and why (the script prints this). The packages: `yazi fd imagemagick ffmpeg poppler jq git` (`git` provides the `file.exe` needed in 4d).
+Tell the user which packages it's installing and why (the script prints this). The packages: `yazi fd imagemagick ffmpeg poppler jq git` (`git` provides the `file.exe` needed in 4d). The script will also report on git detection (since the user cloned this repo, git is likely already present) and attempt to auto-set `YAZI_FILE_ONE`.
 
 **4c. Verify yazi installed:**
 ```powershell
 yazi --version
 ```
 
-**4d. Set YAZI_FILE_ONE (makes previews work on Windows).** First check if it's already correct:
+**4d. Verify YAZI_FILE_ONE was set.** The install script (4b) now tries to set this automatically. Verify:
 ```powershell
 $existing = [Environment]::GetEnvironmentVariable("YAZI_FILE_ONE", "User")
 if ($existing -and (Test-Path $existing)) { "Already set and valid: $existing" } else { "Needs setting" }
 ```
-If already valid, say so and move on. Otherwise locate git's file.exe and set it:
+If already valid, say so and move on. If the install script could not auto-set it (e.g. git was not found), run the standalone helper:
 ```powershell
-$fileExe = "$env:USERPROFILE\scoop\apps\git\current\usr\bin\file.exe"
-if (Test-Path $fileExe) { [Environment]::SetEnvironmentVariable("YAZI_FILE_ONE", $fileExe, "User"); "Set to $fileExe" } else { "file.exe NOT FOUND — report this, do not guess another path." }
+pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\scripts\set-yazi-file-one.ps1"
 ```
 Then tell the user clearly: **"Close ALL PowerShell windows and open a new one — this setting only takes effect in a fresh window."** Not optional.
 
@@ -193,7 +212,8 @@ Never add keymaps, plugins, or other config unless specifically requested, and n
 
 # Bundled files
 
-- `scripts/diagnose.ps1` — read-only one-shot diagnosis (Phase 1). Sets UTF-8, then reports PATH, install method, config, `yazi --debug`, and environment pre-check.
-- `scripts/install-deps.ps1` — dependency check + install (Phase 4b). Installs only what's missing.
+- `scripts/diagnose.ps1` — read-only one-shot diagnosis (Phase 1). Sets UTF-8, then reports PATH, install method, config, `yazi --debug`, environment pre-check, PowerShell 7+ detection, and YAZI_FILE_ONE status.
+- `scripts/install-deps.ps1` — dependency check + install (Phase 4b). Installs only what's missing, checks scoop buckets, and auto-sets YAZI_FILE_ONE.
+- `scripts/set-yazi-file-one.ps1` — standalone YAZI_FILE_ONE setup (Phase 4d fallback). Finds git's file.exe and sets the env var permanently.
 - `reference/powershell-vs-bash.md` — bash→PowerShell command translations. Consult if unsure whether a command is PowerShell-native.
 - `reference/troubleshooting.md` — how to read the diagnosis report, symptom→fix table, encoding notes, and official sources to verify against.

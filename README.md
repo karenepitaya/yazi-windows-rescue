@@ -30,6 +30,7 @@ It pauses for your confirmation between every step and never improvises.
 - Windows 10 / 11
 - [Claude Code](https://code.claude.com) (CLI)
 - `git` (to download this skill)
+- **PowerShell 7+ (pwsh)** for the install steps. Don't have it? That's fine — the skill detects this and walks you through installing it (the diagnosis step runs on the built-in PowerShell 5.1, so you can start either way). PowerShell 7 is recommended because it handles UTF-8 / Chinese text far better and avoids many legacy quirks.
 
 ## Install and use
 
@@ -102,7 +103,8 @@ yazi-windows-rescue/
 ├── SKILL.md                      # the procedure Claude follows
 ├── scripts/
 │   ├── diagnose.ps1              # read-only one-shot diagnosis
-│   └── install-deps.ps1          # checks deps, installs only what is missing
+│   ├── install-deps.ps1          # checks deps, installs only what is missing
+│   └── set-yazi-file-one.ps1     # standalone helper to wire up file previews
 └── reference/
     ├── powershell-vs-bash.md     # bash to PowerShell command translations
     └── troubleshooting.md        # symptom to fix table, plus official sources
@@ -148,6 +150,7 @@ MIT
 - Windows 10 / 11
 - [Claude Code](https://code.claude.com)(命令行版)
 - `git`(用来下载本技能)
+- **PowerShell 7+(pwsh)**,用于安装步骤。没有也没关系 —— 技能会自动检测并引导你安装(诊断步骤可在系统自带的 PowerShell 5.1 上运行,所以你随便用哪个都能开始)。推荐 PowerShell 7,因为它对 UTF-8 / 中文的处理好得多,也避免了许多旧版本的坑。
 
 ## 安装与使用
 
@@ -220,7 +223,8 @@ yazi-windows-rescue/
 ├── SKILL.md                      # Claude 遵循的主流程
 ├── scripts/
 │   ├── diagnose.ps1              # 只读的一键诊断脚本
-│   └── install-deps.ps1          # 检测依赖,只安装缺少的
+│   ├── install-deps.ps1          # 检测依赖,只安装缺少的
+│   └── set-yazi-file-one.ps1     # 独立的文件预览配置辅助脚本
 └── reference/
     ├── powershell-vs-bash.md     # bash 到 PowerShell 命令对照
     └── troubleshooting.md        # 症状到修复对照表,以及官方来源

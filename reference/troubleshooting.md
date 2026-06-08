@@ -22,6 +22,9 @@ If verification still fails, do NOT improvise — match the symptom here:
 | Only one media type fails (e.g. PDFs) | That specific dependency is missing | `Get-Command pdftoppm, magick, ffmpeg -ErrorAction SilentlyContinue \| Select-Object Name, Source`, then `scoop install` the missing package |
 | Everything blank, `Adapter` shows `Sixel`, `width: 0` | This is a known cosmetic detail on Windows, NOT the problem | Recheck config-load and `YAZI_FILE_ONE` first; do not chase the terminal protocol |
 | scoop command not found right after install | PATH not refreshed | Close all windows, open a fresh one |
+| Script stops and asks for PowerShell 7 | Running in Windows PowerShell 5.1, not pwsh 7+ | Install pwsh 7 — `scoop install pwsh` (recommended), or `winget install --id Microsoft.PowerShell`, or MSI from https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows — then start it with `pwsh` and re-run |
+| YAZI_FILE_ONE shows "NOT SET" in diagnosis | Environment variable was never configured | Run `scripts/set-yazi-file-one.ps1` or set manually per the script's output |
+| YAZI_FILE_ONE set but file does NOT exist | git was uninstalled or path changed | Reinstall git (`scoop install git`) then re-run `scripts/set-yazi-file-one.ps1` |
 
 ## Encoding (garbled / tofu output)
 

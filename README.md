@@ -1,6 +1,6 @@
 <!--
   README — yazi-windows-rescue
-  English section first, Chinese section below. / 英文在前,中文在后。
+  English section first, Chinese section below.
 -->
 
 # yazi-windows-rescue
@@ -137,10 +137,10 @@ MIT
 
 ## 它做什么
 
-1. **诊断** yazi 是怎么装的、问题出在哪 —— 只读,不改动任何东西。
-2. **用平实的语言汇报**发现的情况,并征求你同意再继续。
+1. **一次诊断** yazi 是怎么装的、问题出在哪 —— 只读,不改动任何东西。
+2. **一个汇报**发现的情况,并征求你同意再继续。
 3. **干净卸载**旧的安装(会先备份你的配置)。
-4. **用 Scoop 重装**,只安装你缺的预览依赖,配好文件预览,写入一份最小化配置。
+4. **用 Scoop 重装**,只安装你缺的预览依赖,配好文件预览,写入一份最小化配置,如果没有 Scoop 也不用担心，我们会用最小侵入方式帮你安装好 Scoop, 相信我，这是 Windows 上增强开发体验的开端。
 5. **验证** yazi 能运行、预览能正常工作。
 
 每一步之间都会停下来等你确认,绝不自作主张。
@@ -150,7 +150,7 @@ MIT
 - Windows 10 / 11
 - [Claude Code](https://code.claude.com)(命令行版)
 - `git`(用来下载本技能)
-- **PowerShell 7+(pwsh)**,用于安装步骤。没有也没关系 —— 技能会自动检测并引导你安装(诊断步骤可在系统自带的 PowerShell 5.1 上运行,所以你随便用哪个都能开始)。推荐 PowerShell 7,因为它对 UTF-8 / 中文的处理好得多,也避免了许多旧版本的坑。
+- **PowerShell 7+(pwsh)**,用于安装步骤。如果你不清楚系统中是否安装没有也没关系 —— 技能会自动检测并引导你安装(诊断步骤可在系统自带的 PowerShell 5.1 上运行,所以你随便用哪个都能开始)。作为 [PowerShell 7](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.2) 的忠实布道者,必须说明：它对 UTF-8 / 中文的处理好得多,也避免了许多旧版本的坑,与新版的 [Windows Terminal](https://github.com/microsoft/terminal/releases/tag/v1.24.11321.0) 配合使用，是现代化终端体验增强的开始。
 
 ## 安装与使用
 
@@ -190,6 +190,8 @@ Remove-Item "$env:USERPROFILE\Desktop\yazi-fix" -Recurse -Force
 
 ### 方式 B —— 长期安装(在所有项目中均可用)
 
+(但是这是没有必要的,我并不希望你会反复用到这个 skill,这本身就应该是一个一次性的修复工具，但是还是可以看看，如何手动安装一个可以全局使用的 skill)
+
 装到你的「个人技能」文件夹,使其始终可用:
 
 ```powershell
@@ -207,7 +209,7 @@ git pull
 
 安装好之后(上面两种方式皆可),有两种方式触发本技能:
 
-1. **直接用平实的语言描述问题** —— 例如「我的 yazi 打不开 / 没有预览」。Claude Code 会自动识别并启动本技能。
+1. **直接描述问题** —— 例如「我的 yazi 打不开 / 没有预览」。Claude Code 会自动识别并启动本技能。
 2. **输入斜杠命令** `/yazi-windows-rescue` 然后回车。命令名来自技能的文件夹名,所以技能一装好就能用。开始输入 `/yazi` 时它会出现在自动补全菜单里。
 
 两种方式效果完全相同。想要明确地手动启动时,斜杠命令很方便;如果记不住命令名,用平实的语言描述更省事。
@@ -232,8 +234,10 @@ yazi-windows-rescue/
 
 ## 来源
 
-所有命令均依据 yazi 官方文档与仓库,而非凭空假设:
+本 skill **参考内容**为 yazi 官方文档与仓库,如果感兴趣的话可以阅读相关文档:
 [文档](https://yazi-rs.github.io/) · [安装](https://yazi-rs.github.io/docs/installation) · [源码(MIT)](https://github.com/sxyazi/yazi)
+
+关于 skill 的**规范设计**来源于：[一份指南](https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf),以及[官方文档](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview),如果你对此感兴趣，这两份文件是一个很好的开始
 
 ## 许可证
 

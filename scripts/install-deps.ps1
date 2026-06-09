@@ -1,12 +1,14 @@
 <#
 .SYNOPSIS
-  Yazi Windows Rescue — dependency check + install.
-  Detects which yazi dependencies are present and installs ONLY the missing ones via scoop.
+  Yazi Windows Rescue — dependency + Nerd Font check + install.
+  Detects which yazi dependencies are present and installs ONLY the missing ones via scoop,
+  then installs a Nerd Font so yazi's icons render (instead of tofu boxes).
 
 .DESCRIPTION
   Run from PowerShell 7+ (pwsh) AFTER scoop is confirmed installed.
   - Prints each dependency as OK or MISSING (with what it's for).
   - Installs only the missing scoop packages (scoop skips anything already installed anyway).
+  - Adds the 'nerd-fonts' bucket and installs a Nerd Font (Maple-Mono-NF-CN) if absent.
   - Auto-sets YAZI_FILE_ONE if not already configured.
   - Idempotent: safe to run more than once.
 
@@ -18,10 +20,17 @@
     pdftoppm    -> poppler      (PDF previews)
     jq          -> jq           (JSON pretty previews)
     git         -> git          (provides file.exe used for MIME detection)
+  Plus a Nerd Font:
+    Maple-Mono-NF-CN -> nerd-fonts/Maple-Mono-NF-CN   (icons + CJK; what yazi draws in the file list)
 
 .NOTES
   Designed for PowerShell 7+. If run on Windows PowerShell 5.1, it will explain
   how to get pwsh and exit gently (rather than throwing a #requires error).
+
+  Font note: on Windows 10 (1809+) and Windows 11, fonts install for the current
+  user WITHOUT admin rights. On older Windows, font install needs an elevated shell.
+  Installing the font is necessary but NOT sufficient — the terminal must also be
+  set to use that font (handled in SKILL.md Phase 4f).
 #>
 
 try {
@@ -33,9 +42,6 @@ try {
 } catch { }
 
 # --- Soft PowerShell 7+ check: guide, don't just fail ---
-# This skill standardizes on PowerShell 7 (pwsh) because it avoids many of the
-# encoding and legacy quirks that break setups on Chinese-locale Windows. Rather
-# than refuse with a raw #requires error, explain the situation and how to fix it.
 if ($PSVersionTable.PSVersion.Major -lt 6) {
     Write-Output "===== This step needs PowerShell 7 (pwsh) ====="
     Write-Output "You're currently running Windows PowerShell $($PSVersionTable.PSVersion) (the old, built-in one)."
@@ -105,7 +111,7 @@ foreach ($cmd in $deps.Keys) {
 
 Write-Output ""
 if ($missingPkgs.Count -eq 0) {
-    Write-Output "All dependencies already present. Nothing to install."
+    Write-Output "All command-line dependencies already present. Nothing to install."
 } else {
     # Verify scoop 'main' bucket exists (needed for most packages)
     $buckets = scoop bucket list 2>$null
@@ -142,6 +148,58 @@ if ($missingPkgs.Count -eq 0) {
     }
     Write-Output "Re-run this script to confirm everything now shows OK."
 }
+
+# ===== Nerd Font (yazi's icons) =====
+# Without a Nerd Font, yazi's file-type icons render as tofu boxes (square boxes) —
+# the UI looks broken even though yazi works. Install one here. NOTE: this is only
+# half the job; the terminal must also be set to use this font (SKILL.md Phase 4f).
+Write-Output ""
+Write-Output "===== Nerd Font (so yazi shows icons, not tofu boxes) ====="
+$fontPkg  = "Maple-Mono-NF-CN"
+$fontFace = "Maple Mono NF CN"   # <- the font-face name to select in the terminal
+# Maple Mono NF CN bundles Nerd Font icons AND full CJK (中文) with perfect 2:1
+# alignment, so icons and Chinese filenames render in ONE face — ideal here.
+
+$fontAlreadyInstalled = $false
+try {
+    $fontList = scoop list $fontPkg 2>$null | Select-String -Pattern $fontPkg
+    if ($fontList) { $fontAlreadyInstalled = $true }
+} catch { }
+
+if ($fontAlreadyInstalled) {
+    Write-Output "Nerd Font already installed via scoop: $fontPkg ($fontFace)."
+} else {
+    $bucketsNow = scoop bucket list 2>$null
+    if ($bucketsNow -notmatch 'nerd-fonts') {
+        Write-Output "Adding the 'nerd-fonts' scoop bucket..."
+        scoop bucket add nerd-fonts
+        if ($LASTEXITCODE -ne 0) {
+            Write-Output "WARNING: could not add the 'nerd-fonts' bucket (network/proxy?). Skipping font install."
+            Write-Output "  yazi will still work; its icons will look wrong until a Nerd Font is installed + selected."
+        }
+    }
+
+    $bucketsNow = scoop bucket list 2>$null
+    if ($bucketsNow -match 'nerd-fonts') {
+        Write-Output "Installing $fontPkg (this provides the icons yazi draws)..."
+        scoop install "nerd-fonts/$fontPkg"
+        $fontExit = $LASTEXITCODE
+        if ($fontExit -ne 0) {
+            Write-Output ""
+            Write-Output "WARNING: the font install did not complete cleanly (exit code $fontExit)."
+            Write-Output "  - On Windows 10 (1809+) and Windows 11, fonts install for your user WITHOUT admin rights."
+            Write-Output "  - On older Windows, open an Administrator PowerShell and run: scoop install nerd-fonts/$fontPkg"
+            Write-Output "  yazi itself still works; only its icons will look wrong until the font is installed and selected."
+        } else {
+            Write-Output "Font installed: $fontFace"
+        }
+    }
+}
+Write-Output ""
+Write-Output "IMPORTANT (manual, one-time): installing the font is NOT enough — set your terminal to USE it."
+Write-Output "  Windows Terminal: Settings (Ctrl+,) -> Profiles -> Defaults -> Appearance -> Font face -> choose '$fontFace'."
+Write-Output "  Other terminals (Alacritty / WezTerm / Ghostty / etc.): set their font to '$fontFace'."
+Write-Output "  Until you do this, yazi will keep showing tofu boxes instead of icons."
 
 # Auto-set YAZI_FILE_ONE if not already configured
 Write-Output ""

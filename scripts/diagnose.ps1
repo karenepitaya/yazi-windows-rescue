@@ -10,9 +10,11 @@
     - how yazi was installed (scoop / winget / cargo / manual-unknown)
     - whether a config folder exists and what's in it
     - yazi's own self-check (yazi --debug), if yazi runs
-    - environment pre-check (PowerShell version, execution policy, network to GitHub)
+    - environment pre-check: PowerShell version, execution policy, and a REAL
+      HTTPS reachability test to the GitHub endpoints scoop needs, plus proxy settings
     - PowerShell 7+ detection (comprehensive, multi-source)
     - YAZI_FILE_ONE environment variable status
+    - Nerd Font status: font package installed + terminal font face configured
   Paste the whole report back to Claude.
 #>
 
@@ -27,6 +29,29 @@ try {
 function Section($title) {
     Write-Output ""
     Write-Output "===== $title ====="
+}
+
+# Real reachability test over HTTPS. ICMP ping (Test-Connection) is unreliable —
+# many hosts block ICMP, and a ping says nothing about whether HTTPS (port 443) works.
+# A non-success HTTP status still means we REACHED the host, so we treat that as reachable.
+function Test-Endpoint($name, $url) {
+    try {
+        $null = Invoke-WebRequest -Uri $url -Method Head -TimeoutSec 8 -UseBasicParsing -ErrorAction Stop
+        Write-Output ("  [OK]      {0,-26} {1}" -f $name, $url)
+        return $true
+    } catch {
+        $resp = $_.Exception.Response
+        if ($null -ne $resp) {
+            # Connected to the server; it just returned a non-2xx status. Host IS reachable.
+            Write-Output ("  [OK*]     {0,-26} {1}  (reached host; non-2xx status)" -f $name, $url)
+            return $true
+        } else {
+            $msg = $_.Exception.Message
+            Write-Output ("  [BLOCKED] {0,-26} {1}" -f $name, $url)
+            Write-Output ("            reason: {0}" -f $msg)
+            return $false
+        }
+    }
 }
 
 try {
@@ -82,18 +107,42 @@ Section "5. Environment pre-check"
 Write-Output "PowerShell version: $($PSVersionTable.PSVersion)"
 Write-Output "Execution policy (effective list):"
 (Get-ExecutionPolicy -List | Out-String) | Write-Output
-$net = $false
-try {
-    $net = Test-Connection raw.githubusercontent.com -Count 1 -Quiet -ErrorAction SilentlyContinue
-} catch {
-    $net = $false
-    Write-Output "  (Network test failed: $($_.Exception.Message))"
+
+Write-Output ""
+Write-Output "--- Network: can we reach the servers scoop downloads from? ---"
+Write-Output "(Tested over HTTPS. This is the #1 cause of installs failing halfway — especially on networks in mainland China, where raw.githubusercontent.com is often blocked.)"
+$net_scoop = Test-Endpoint "get.scoop.sh"               "https://get.scoop.sh"
+$net_gh    = Test-Endpoint "github.com"                 "https://github.com"
+$net_raw   = Test-Endpoint "raw.githubusercontent.com"  "https://raw.githubusercontent.com"
+$net_obj   = Test-Endpoint "objects.githubusercontent.com" "https://objects.githubusercontent.com"
+
+Write-Output ""
+$critOk = ($net_gh -and $net_raw -and $net_scoop)
+if ($critOk) {
+    Write-Output "NETWORK VERDICT: OK — the critical GitHub endpoints are reachable. Safe to install."
+} else {
+    Write-Output "NETWORK VERDICT: PROBLEM — at least one critical endpoint is blocked."
+    Write-Output "  -> Do NOT start installing yet, or scoop will likely fail partway through."
+    Write-Output "  -> If you use a proxy tool (e.g. Clash), turn on system proxy / TUN mode and re-run this script."
+    Write-Output "  -> Or point scoop at your proxy:  scoop config proxy 127.0.0.1:7890   (use your real port)"
+    Write-Output "     (remove later with:  scoop config rm proxy)"
+    Write-Output "  -> Scoop-behind-a-proxy guide: https://github.com/ScoopInstaller/Scoop/wiki/Using-Scoop-behind-a-proxy"
 }
-Write-Output "Can reach GitHub (needed to download scoop/tools): $net"
-if (-not $net) {
-    Write-Output "  -> If you are behind a proxy or firewall, you may need to configure it before scoop can download packages."
-    Write-Output "  -> Check: https://github.com/ScoopInstaller/Scoop/wiki/Using-Scoop-behind-a-proxy"
+
+Write-Output ""
+Write-Output "--- Proxy settings currently visible ---"
+$anyProxy = $false
+foreach ($v in 'HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy') {
+    $val = [Environment]::GetEnvironmentVariable($v)
+    if ($val) { Write-Output "  env $v = $val"; $anyProxy = $true }
 }
+if (Get-Command scoop -ErrorAction SilentlyContinue) {
+    try {
+        $sp = scoop config proxy 2>$null
+        if ($sp) { Write-Output "  scoop config proxy = $sp"; $anyProxy = $true }
+    } catch { }
+}
+if (-not $anyProxy) { Write-Output "  (no proxy environment variables or scoop proxy configured)" }
 
 Section "6. PowerShell 7+ (pwsh) detection"
 $isPwsh = ($PSVersionTable.PSEdition -eq 'Core') -or ($PSVersionTable.PSVersion.Major -ge 6)
@@ -208,9 +257,9 @@ if ($isPwsh) {
         Write-Output "SUMMARY: PowerShell 7+ was NOT found on this system."
         Write-Output ""
         Write-Output "RECOMMENDATION: Install PowerShell 7+ for the best experience."
-        Write-Output "  Option 1 (recommended): winget install --id Microsoft.PowerShell"
-        Write-Output "  Option 2: Download MSI from https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows"
-        Write-Output "  Option 3: scoop install pwsh"
+        Write-Output "  Option 1 (recommended): scoop install pwsh"
+        Write-Output "  Option 2: winget install --id Microsoft.PowerShell"
+        Write-Output "  Option 3: Download MSI from https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows"
     }
 }
 
@@ -246,6 +295,59 @@ if ($yfoSession) {
 } else {
     Write-Output "YAZI_FILE_ONE (current session): NOT SET"
 }
+
+Section "8. Nerd Font status (icons, not tofu boxes)"
+# Check if the font package is installed via scoop
+$fontPkg = "Maple-Mono-NF-CN"
+$fontFace = "Maple Mono NF CN"
+$fontInstalled = $false
+try {
+    $fontList = scoop list $fontPkg 2>$null | Select-String -Pattern $fontPkg
+    if ($fontList) { $fontInstalled = $true }
+} catch { }
+if ($fontInstalled) {
+    Write-Output "Font package installed via scoop: $fontPkg"
+} else {
+    Write-Output "Font package NOT installed: $fontPkg (icons will show as tofu boxes)"
+}
+
+# Check Windows Terminal font setting
+$wtSettings = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+if (Test-Path $wtSettings) {
+    try {
+        $wtJson = Get-Content $wtSettings -Raw | ConvertFrom-Json
+        $wtFont = $wtJson.profiles.defaults.font.face
+        if ($wtFont) {
+            $isNerd = $wtFont -match "NF|Nerd|NerdFont"
+            if ($isNerd) {
+                Write-Output "Windows Terminal default font: $wtFont (Nerd Font OK)"
+            } else {
+                Write-Output "Windows Terminal default font: $wtFont (NOT a Nerd Font — icons will be tofu)"
+            }
+        } else {
+            Write-Output "Windows Terminal: no default font face configured (using system default)"
+        }
+    } catch {
+        Write-Output "Windows Terminal: could not parse settings.json — $($_.Exception.Message)"
+    }
+} else {
+    Write-Output "Windows Terminal: settings.json not found (not installed, or portable)"
+}
+
+# Check legacy PowerShell console font (registry)
+try {
+    $consoleFont = (Get-ItemProperty -Path "HKCU:\Console" -Name "FaceName" -ErrorAction SilentlyContinue).FaceName
+    if ($consoleFont) {
+        $isNerd = $consoleFont -match "NF|Nerd|NerdFont"
+        if ($isNerd) {
+            Write-Output "Legacy console font: $consoleFont (Nerd Font OK)"
+        } else {
+            Write-Output "Legacy console font: $consoleFont (NOT a Nerd Font)"
+        }
+    } else {
+        Write-Output "Legacy console font: (system default, no FaceName set)"
+    }
+} catch { }
 
 Write-Output ""
 Write-Output "########## END OF REPORT — paste everything above back to Claude ##########"

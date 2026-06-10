@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets (defense in depth)
+*.pem
+*.key
+secrets/
+credentials.json
+.env
+.env.*
+!.env.example
+
+# Temp
+*.tmp
+*.bak
+*.log

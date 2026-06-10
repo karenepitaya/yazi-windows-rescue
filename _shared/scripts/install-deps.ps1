@@ -30,7 +30,7 @@
   Font note: on Windows 10 (1809+) and Windows 11, fonts install for the current
   user WITHOUT admin rights. On older Windows, font install needs an elevated shell.
   Installing the font is necessary but NOT sufficient — the terminal must also be
-  set to use that font (handled in SKILL.md Phase 4f).
+  set to use that font (handled in the yazi-install skill, Phase 6f).
 #>
 
 try {
@@ -71,7 +71,7 @@ if ($PSVersionTable.PSVersion.Major -lt 6) {
 try {
 
 if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
-    Write-Output "ERROR: scoop is not installed yet. Install scoop first (see SKILL.md Phase 4a), then re-run this."
+    Write-Output "ERROR: scoop is not installed yet. Install scoop first (run the scoop install step in the yazi-install skill first), then re-run this."
     Write-Output "  Quick install: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser; Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression"
     Write-Output "  Scoop docs: https://scoop.sh/"
     return
@@ -152,7 +152,7 @@ if ($missingPkgs.Count -eq 0) {
 # ===== Nerd Font (yazi's icons) =====
 # Without a Nerd Font, yazi's file-type icons render as tofu boxes (square boxes) —
 # the UI looks broken even though yazi works. Install one here. NOTE: this is only
-# half the job; the terminal must also be set to use this font (SKILL.md Phase 4f).
+# half the job; the terminal must also be set to use this font (the yazi-install skill, Phase 6f).
 Write-Output ""
 Write-Output "===== Nerd Font (so yazi shows icons, not tofu boxes) ====="
 $fontPkg  = "Maple-Mono-NF-CN"

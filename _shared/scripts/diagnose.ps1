@@ -14,7 +14,6 @@
       HTTPS reachability test to the GitHub endpoints scoop needs, plus proxy settings
     - PowerShell 7+ detection (comprehensive, multi-source)
     - YAZI_FILE_ONE environment variable status
-    - Nerd Font status: font package installed + terminal font face configured
   Paste the whole report back to Claude.
 #>
 
@@ -295,59 +294,6 @@ if ($yfoSession) {
 } else {
     Write-Output "YAZI_FILE_ONE (current session): NOT SET"
 }
-
-Section "8. Nerd Font status (icons, not tofu boxes)"
-# Check if the font package is installed via scoop
-$fontPkg = "Maple-Mono-NF-CN"
-$fontFace = "Maple Mono NF CN"
-$fontInstalled = $false
-try {
-    $fontList = scoop list $fontPkg 2>$null | Select-String -Pattern $fontPkg
-    if ($fontList) { $fontInstalled = $true }
-} catch { }
-if ($fontInstalled) {
-    Write-Output "Font package installed via scoop: $fontPkg"
-} else {
-    Write-Output "Font package NOT installed: $fontPkg (icons will show as tofu boxes)"
-}
-
-# Check Windows Terminal font setting
-$wtSettings = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-if (Test-Path $wtSettings) {
-    try {
-        $wtJson = Get-Content $wtSettings -Raw | ConvertFrom-Json
-        $wtFont = $wtJson.profiles.defaults.font.face
-        if ($wtFont) {
-            $isNerd = $wtFont -match "NF|Nerd|NerdFont"
-            if ($isNerd) {
-                Write-Output "Windows Terminal default font: $wtFont (Nerd Font OK)"
-            } else {
-                Write-Output "Windows Terminal default font: $wtFont (NOT a Nerd Font — icons will be tofu)"
-            }
-        } else {
-            Write-Output "Windows Terminal: no default font face configured (using system default)"
-        }
-    } catch {
-        Write-Output "Windows Terminal: could not parse settings.json — $($_.Exception.Message)"
-    }
-} else {
-    Write-Output "Windows Terminal: settings.json not found (not installed, or portable)"
-}
-
-# Check legacy PowerShell console font (registry)
-try {
-    $consoleFont = (Get-ItemProperty -Path "HKCU:\Console" -Name "FaceName" -ErrorAction SilentlyContinue).FaceName
-    if ($consoleFont) {
-        $isNerd = $consoleFont -match "NF|Nerd|NerdFont"
-        if ($isNerd) {
-            Write-Output "Legacy console font: $consoleFont (Nerd Font OK)"
-        } else {
-            Write-Output "Legacy console font: $consoleFont (NOT a Nerd Font)"
-        }
-    } else {
-        Write-Output "Legacy console font: (system default, no FaceName set)"
-    }
-} catch { }
 
 Write-Output ""
 Write-Output "########## END OF REPORT — paste everything above back to Claude ##########"

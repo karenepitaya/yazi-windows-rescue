@@ -1,0 +1,12 @@
+#:schema https://yazi-rs.github.io/schemas/yazi.json
+# yazi-windows-rescue: minimal baseline config.
+# yazi ships ~246 lines of correct defaults; this only overrides a few basics.
+
+[mgr]
+ratio          = [ 1, 3, 4 ]
+sort_dir_first = true
+linemode       = "size"
+show_hidden    = false
+
+[preview]
+image_delay = 30

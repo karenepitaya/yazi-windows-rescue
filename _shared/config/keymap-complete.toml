@@ -1,0 +1,10 @@
+#:schema https://yazi-rs.github.io/schemas/keymap.json
+# yazi-windows-rescue: complete tier keymap.
+# Only universal, high-value additions. Personal jumps (e.g. a projects dir)
+# are appended by /yazi-config if the user asks for one.
+
+[mgr]
+prepend_keymap = [
+    { on = ["g", "h"], run = "cd ~", desc = "Go home" },
+    { on = "!", run = 'shell "pwsh" --block --confirm', desc = "Open PowerShell here" },
+]

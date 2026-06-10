@@ -1,0 +1,8 @@
+# yazi-windows-rescue: theme selector.
+# Per official docs, theme.toml must contain ONLY [flavor] unless deliberately
+# overriding styles. The flavor itself is installed by:
+#   ya pkg add yazi-rs/flavors:catppuccin-mocha
+# /yazi-config writes this file ONLY after that install succeeds.
+
+[flavor]
+dark = "catppuccin-mocha"

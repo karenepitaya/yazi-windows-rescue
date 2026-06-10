@@ -1,0 +1,16 @@
+# yazi-windows-rescue: version-pinned package manifest (the reproducibility lock).
+# These exact revisions were installed and verified together on the author's
+# machine. /yazi-config copies this file into the user's config dir and runs
+# `ya pkg install`, so every user gets the SAME verified combination - not
+# whatever happens to be latest on GitHub.
+# To upgrade: bump on the author's machine first, verify, then update this file.
+
+[[plugin.deps]]
+use = "yazi-rs/plugins:piper"
+rev = "598cdb6"
+hash = "1dee6493ff2a9d9d75c0057d97093bcc"
+
+[[flavor.deps]]
+use = "yazi-rs/flavors:catppuccin-mocha"
+rev = "36c49ac"
+hash = "5ebc8659108fcb68fe853e523115ed3c"

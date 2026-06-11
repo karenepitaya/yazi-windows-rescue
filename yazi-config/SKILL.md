@@ -41,7 +41,7 @@ Take a **verified-working** yazi and make it the setup its author actually uses 
 powershell -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\verify-yazi.ps1"
 ```
 
-Read the pasted output:
+**Execution mode:** run it yourself if you have shell access (Claude Code); "user runs and pastes back" is only the fallback. Then read the output:
 - **`VERDICT: NOT-READY`** → refuse to configure. 平实解释列出的原因，然后："先运行 **`/yazi-install`** 把安装修好，再回来跑 `/yazi-config`，一两分钟的事。" **End here.**
 - **`VERDICT: READY` + `NETWORK: PROBLEM`** → 说明：最小档不需要网络，可以做；完整档要从 GitHub 拉主题/插件/工具，需要先修网络（代理指引：`scoop config proxy 127.0.0.1:7890`，换自己的端口）。`AskUserQuestion`: **「先修网络再上完整档（推荐）」**／「先用最小档」／「再测一次」.
 - **`VERDICT: READY` + `NETWORK: OK`** → continue.

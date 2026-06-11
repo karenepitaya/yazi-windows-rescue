@@ -4,19 +4,17 @@
   Read-only. Changes nothing. Gathers everything needed to decide how to clean up.
 
 .DESCRIPTION
-  Run this from PowerShell. It prints a single, clearly-sectioned report covering:
-    - UTF-8 setup (so Chinese / output isn't garbled)
-    - whether yazi is on PATH and where
-    - how yazi was installed (scoop / winget / cargo / manual-unknown)
-    - whether a config folder exists and what's in it
-    - yazi's own self-check (yazi --debug), if yazi runs
-    - environment pre-check: PowerShell version, execution policy, and a REAL
-      HTTPS reachability test to the GitHub endpoints scoop needs, plus proxy settings
-    - PowerShell 7+ detection (comprehensive, multi-source)
-    - YAZI_FILE_ONE environment variable status
-  Paste the whole report back to Claude.
+  Prints a single, clearly-sectioned report. FAULT-ISOLATED: every section runs
+  inside its own guard, so one failing probe can never kill the checks after it
+  (a failed section prints why and the report continues). Covers:
+    1. yazi on PATH          2. install method        3. config folder + files
+    4. yazi --debug          5. NETWORK (real HTTPS)  6. PS version + exec policy
+    7. pwsh 7+ detection     8. YAZI_FILE_ONE         9. Nerd Font + terminal font
+    10. yazi packages (ya pkg list)
+  Works on Windows PowerShell 5.1 and pwsh 7+.
 #>
 
+# --- Prologue: UTF-8 + PSModulePath hygiene -------------------------------
 try {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     [Console]::InputEncoding  = [System.Text.Encoding]::UTF8
@@ -25,14 +23,41 @@ try {
     chcp 65001 > $null
 } catch { }
 
+# Windows PowerShell 5.1 spawned from another process (e.g. an agent/IDE) often
+# inherits a PSModulePath polluted with PowerShell 7 module dirs, which breaks
+# auto-loading of core modules like Microsoft.PowerShell.Security
+# (Get-ExecutionPolicy then throws). Putting 5.1's own module dir FIRST fixes it.
+try {
+    if ($PSVersionTable.PSEdition -ne 'Core') {
+        $own = "$PSHOME\Modules"
+        if ($env:PSModulePath -notlike "$own*") {
+            $env:PSModulePath = "$own;" + $env:PSModulePath
+        }
+    }
+} catch { }
+
 function Section($title) {
     Write-Output ""
     Write-Output "===== $title ====="
 }
 
-# Real reachability test over HTTPS. ICMP ping (Test-Connection) is unreliable —
-# many hosts block ICMP, and a ping says nothing about whether HTTPS (port 443) works.
-# A non-success HTTP status still means we REACHED the host, so we treat that as reachable.
+# Per-section fault isolation. A diagnosis script's job is "check what it can,
+# label what it can't" — one failed probe must never abort the rest.
+function Invoke-Check($title, [scriptblock]$block) {
+    Section $title
+    try {
+        & $block
+    } catch {
+        Write-Output "[CHECK FAILED] $title"
+        Write-Output "  reason: $($_.Exception.Message)"
+        Write-Output "  -> Skipping this section and continuing. Items here are UNCHECKED, not OK."
+        Write-Output "     (Failures here are common on PowerShell 5.1 with a polluted module path;"
+        Write-Output "      re-running this script in pwsh 7 usually yields a complete report.)"
+    }
+}
+
+# Real reachability test over HTTPS. ICMP ping is unreliable (many hosts block
+# ICMP, and ping says nothing about port 443). Non-2xx still means reached.
 function Test-Endpoint($name, $url) {
     try {
         $null = Invoke-WebRequest -Uri $url -Method Head -TimeoutSec 8 -UseBasicParsing -ErrorAction Stop
@@ -41,268 +66,214 @@ function Test-Endpoint($name, $url) {
     } catch {
         $resp = $_.Exception.Response
         if ($null -ne $resp) {
-            # Connected to the server; it just returned a non-2xx status. Host IS reachable.
             Write-Output ("  [OK*]     {0,-26} {1}  (reached host; non-2xx status)" -f $name, $url)
             return $true
         } else {
-            $msg = $_.Exception.Message
             Write-Output ("  [BLOCKED] {0,-26} {1}" -f $name, $url)
-            Write-Output ("            reason: {0}" -f $msg)
+            Write-Output ("            reason: {0}" -f $_.Exception.Message)
             return $false
         }
     }
 }
 
-try {
-
 Write-Output "########## YAZI WINDOWS RESCUE — DIAGNOSIS REPORT ##########"
 Write-Output "(This script only reads information. It changes and deletes nothing.)"
 
-Section "1. Is yazi on PATH, and where?"
-$yaziCmd = Get-Command yazi -ErrorAction SilentlyContinue
-if ($yaziCmd) { Write-Output "FOUND: $($yaziCmd.Source)" } else { Write-Output "NOT FOUND on PATH" }
+$script:yaziCmd = $null
 
-Section "2. How was yazi installed?"
-# scoop
-$scoopHit = $null
-if (Get-Command scoop -ErrorAction SilentlyContinue) {
-    $scoopHit = (scoop list 2>$null | Select-String -Pattern "yazi")
-}
-if ($scoopHit) { Write-Output "scoop: YES -> $scoopHit" } else { Write-Output "scoop: no (or scoop not installed)" }
-# winget
-$wingetHit = $null
-if (Get-Command winget -ErrorAction SilentlyContinue) {
-    $wingetHit = (winget list 2>$null | Select-String -Pattern "yazi")
-}
-if ($wingetHit) { Write-Output "winget: YES -> $wingetHit" } else { Write-Output "winget: no (or winget not installed)" }
-# cargo
-$cargoPath = "$env:USERPROFILE\.cargo\bin\yazi.exe"
-if (Test-Path $cargoPath) { Write-Output "cargo: YES -> $cargoPath" } else { Write-Output "cargo: no" }
-# manual/unknown hint
-if ($yaziCmd -and -not $scoopHit -and -not $wingetHit -and -not (Test-Path $cargoPath)) {
-    Write-Output "NOTE: yazi exists on PATH but no package manager claims it -> likely a MANUAL / UNKNOWN install at: $($yaziCmd.Source)"
+Invoke-Check "1. Is yazi on PATH, and where?" {
+    $script:yaziCmd = Get-Command yazi -ErrorAction SilentlyContinue
+    if ($script:yaziCmd) { Write-Output "FOUND: $($script:yaziCmd.Source)" } else { Write-Output "NOT FOUND on PATH" }
 }
 
-Section "3. Config folder contents"
-$cfg = "$env:APPDATA\yazi\config"
-if (Test-Path $cfg) {
-    Get-ChildItem $cfg -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length | Format-Table -AutoSize | Out-String | Write-Output
-} else {
-    Write-Output "No config folder at $cfg"
-}
-
-Section "4. yazi self-check (yazi --debug, first 60 lines)"
-if ($yaziCmd) {
-    try {
-        (yazi --debug 2>&1 | Select-Object -First 60 | Out-String) | Write-Output
-    } catch {
-        Write-Output "yazi --debug could not run: $($_.Exception.Message)"
+Invoke-Check "2. How was yazi installed?" {
+    $scoopHit = $null
+    if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        $scoopHit = (scoop list 2>$null | Select-String -Pattern "yazi")
     }
-} else {
-    Write-Output "Skipped — yazi is not on PATH."
+    if ($scoopHit) { Write-Output "scoop: YES -> $scoopHit" } else { Write-Output "scoop: no (or scoop not installed)" }
+    $wingetHit = $null
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        $wingetHit = (winget list 2>$null | Select-String -Pattern "yazi")
+    }
+    if ($wingetHit) { Write-Output "winget: YES -> $wingetHit" } else { Write-Output "winget: no (or winget not installed)" }
+    $cargoPath = "$env:USERPROFILE\.cargo\bin\yazi.exe"
+    if (Test-Path $cargoPath) { Write-Output "cargo: YES -> $cargoPath" } else { Write-Output "cargo: no" }
+    if ($script:yaziCmd -and -not $scoopHit -and -not $wingetHit -and -not (Test-Path $cargoPath)) {
+        Write-Output "NOTE: yazi exists on PATH but no package manager claims it -> likely MANUAL / UNKNOWN install at: $($script:yaziCmd.Source)"
+    }
 }
 
-Section "5. Environment pre-check"
-Write-Output "PowerShell version: $($PSVersionTable.PSVersion)"
-Write-Output "Execution policy (effective list):"
-(Get-ExecutionPolicy -List | Out-String) | Write-Output
-
-Write-Output ""
-Write-Output "--- Network: can we reach the servers scoop downloads from? ---"
-Write-Output "(Tested over HTTPS. This is the #1 cause of installs failing halfway — especially on networks in mainland China, where raw.githubusercontent.com is often blocked.)"
-$net_scoop = Test-Endpoint "get.scoop.sh"               "https://get.scoop.sh"
-$net_gh    = Test-Endpoint "github.com"                 "https://github.com"
-$net_raw   = Test-Endpoint "raw.githubusercontent.com"  "https://raw.githubusercontent.com"
-$net_obj   = Test-Endpoint "objects.githubusercontent.com" "https://objects.githubusercontent.com"
-
-Write-Output ""
-$critOk = ($net_gh -and $net_raw -and $net_scoop)
-if ($critOk) {
-    Write-Output "NETWORK VERDICT: OK — the critical GitHub endpoints are reachable. Safe to install."
-} else {
-    Write-Output "NETWORK VERDICT: PROBLEM — at least one critical endpoint is blocked."
-    Write-Output "  -> Do NOT start installing yet, or scoop will likely fail partway through."
-    Write-Output "  -> If you use a proxy tool (e.g. Clash), turn on system proxy / TUN mode and re-run this script."
-    Write-Output "  -> Or point scoop at your proxy:  scoop config proxy 127.0.0.1:7890   (use your real port)"
-    Write-Output "     (remove later with:  scoop config rm proxy)"
-    Write-Output "  -> Scoop-behind-a-proxy guide: https://github.com/ScoopInstaller/Scoop/wiki/Using-Scoop-behind-a-proxy"
+Invoke-Check "3. Config folder contents" {
+    $cfg = "$env:APPDATA\yazi\config"
+    if (Test-Path $cfg) {
+        Get-ChildItem $cfg -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length | Format-Table -AutoSize | Out-String | Write-Output
+        foreach ($f in "yazi.toml","keymap.toml","theme.toml","package.toml","init.lua") {
+            $p = Join-Path $cfg $f
+            if (Test-Path $p) { Write-Output ("  present: {0}" -f $f) } else { Write-Output ("  absent : {0}  (optional)" -f $f) }
+        }
+    } else {
+        Write-Output "No config folder at $cfg"
+    }
 }
 
-Write-Output ""
-Write-Output "--- Proxy settings currently visible ---"
-$anyProxy = $false
-foreach ($v in 'HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy') {
-    $val = [Environment]::GetEnvironmentVariable($v)
-    if ($val) { Write-Output "  env $v = $val"; $anyProxy = $true }
+Invoke-Check "4. yazi self-check (yazi --debug, first 60 lines)" {
+    if ($script:yaziCmd) {
+        (yazi --debug 2>&1 | Select-Object -First 60 | Out-String) | Write-Output
+    } else {
+        Write-Output "Skipped — yazi is not on PATH."
+    }
 }
-if (Get-Command scoop -ErrorAction SilentlyContinue) {
+
+Invoke-Check "5. NETWORK — can we reach the servers scoop/ya download from?" {
+    Write-Output "(Tested over HTTPS. The #1 cause of installs failing halfway — especially on networks in mainland China, where raw.githubusercontent.com is often blocked.)"
+    $net_scoop = Test-Endpoint "get.scoop.sh"               "https://get.scoop.sh"
+    $net_gh    = Test-Endpoint "github.com"                 "https://github.com"
+    $net_raw   = Test-Endpoint "raw.githubusercontent.com"  "https://raw.githubusercontent.com"
+    $net_obj   = Test-Endpoint "objects.githubusercontent.com" "https://objects.githubusercontent.com"
+    Write-Output ""
+    if ($net_gh -and $net_raw -and $net_scoop) {
+        Write-Output "NETWORK VERDICT: OK — the critical GitHub endpoints are reachable. Safe to install."
+    } else {
+        Write-Output "NETWORK VERDICT: PROBLEM — at least one critical endpoint is blocked."
+        Write-Output "  -> Do NOT start installing yet, or downloads will fail partway through."
+        Write-Output "  -> Proxy tool (e.g. Clash): turn on system proxy / TUN mode and re-run this script."
+        Write-Output "  -> Or point scoop at your proxy:  scoop config proxy 127.0.0.1:7890   (your real port)"
+        Write-Output "     (remove later with:  scoop config rm proxy)"
+        Write-Output "  -> Guide: https://github.com/ScoopInstaller/Scoop/wiki/Using-Scoop-behind-a-proxy"
+    }
+    Write-Output ""
+    Write-Output "--- Proxy settings currently visible ---"
+    $anyProxy = $false
+    foreach ($v in 'HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','http_proxy','https_proxy','all_proxy') {
+        $val = [Environment]::GetEnvironmentVariable($v)
+        if ($val) { Write-Output "  env $v = $val"; $anyProxy = $true }
+    }
+    if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        try {
+            $sp = scoop config proxy 2>$null
+            if ($sp) { Write-Output "  scoop config proxy = $sp"; $anyProxy = $true }
+        } catch { }
+    }
+    if (-not $anyProxy) { Write-Output "  (no proxy environment variables or scoop proxy configured)" }
+}
+
+Invoke-Check "6. Environment pre-check (PS version, execution policy)" {
+    Write-Output "PowerShell version: $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))"
+    # Get-ExecutionPolicy needs Microsoft.PowerShell.Security — the probe most
+    # likely to fail on 5.1 with module-path pollution, so it gets its OWN guard:
     try {
-        $sp = scoop config proxy 2>$null
-        if ($sp) { Write-Output "  scoop config proxy = $sp"; $anyProxy = $true }
-    } catch { }
+        Write-Output "Execution policy (effective list):"
+        (Get-ExecutionPolicy -List | Out-String) | Write-Output
+    } catch {
+        Write-Output "Execution policy: COULD NOT READ ($($_.Exception.Message))"
+        Write-Output "  -> Known 5.1 quirk (Microsoft.PowerShell.Security failed to load)."
+        Write-Output "  -> Does NOT affect yazi. Treat policy as UNKNOWN; the scoop install step has fallbacks."
+    }
 }
-if (-not $anyProxy) { Write-Output "  (no proxy environment variables or scoop proxy configured)" }
 
-Section "6. PowerShell 7+ (pwsh) detection"
-$isPwsh = ($PSVersionTable.PSEdition -eq 'Core') -or ($PSVersionTable.PSVersion.Major -ge 6)
-if ($isPwsh) {
-    Write-Output "Already running PowerShell 7+ (version $($PSVersionTable.PSVersion)). No action needed."
-} else {
+Invoke-Check "7. PowerShell 7+ (pwsh) detection" {
+    $isPwsh = ($PSVersionTable.PSEdition -eq 'Core') -or ($PSVersionTable.PSVersion.Major -ge 6)
+    if ($isPwsh) {
+        Write-Output "Already running PowerShell 7+ (version $($PSVersionTable.PSVersion)). No action needed."
+        return
+    }
     Write-Output "You are running Windows PowerShell $($PSVersionTable.PSVersion) (legacy)."
     Write-Output "Scanning for PowerShell 7+ installations..."
     Write-Output ""
-
-    $foundLocations = [System.Collections.Generic.List[string]]::new()
-
-    # a. Get-Command
+    $found = [System.Collections.Generic.List[string]]::new()
     $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
-    if ($pwshCmd) {
-        $loc = $pwshCmd.Source
-        if ($foundLocations -notcontains $loc) { $foundLocations.Add($loc) }
-        Write-Output "  Get-Command pwsh -> $loc"
+    if ($pwshCmd) { $found.Add($pwshCmd.Source); Write-Output "  Get-Command pwsh -> $($pwshCmd.Source)" }
+    foreach ($p in @("$env:ProgramFiles\PowerShell\7\pwsh.exe", "${env:ProgramFiles(x86)}\PowerShell\7\pwsh.exe")) {
+        if ((Test-Path $p) -and ($found -notcontains $p)) { $found.Add($p); Write-Output "  MSI path -> $p" }
     }
-
-    # b. Standard MSI paths
-    $msiPaths = @(
-        "$env:ProgramFiles\PowerShell\7\pwsh.exe",
-        "${env:ProgramFiles(x86)}\PowerShell\7\pwsh.exe"
-    )
-    foreach ($p in $msiPaths) {
-        if (Test-Path $p) {
-            if ($foundLocations -notcontains $p) { $foundLocations.Add($p) }
-            Write-Output "  MSI path -> $p"
-        }
+    Get-ChildItem "$env:ProgramFiles\PowerShell\*\pwsh.exe" -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($found -notcontains $_.FullName) { $found.Add($_.FullName); Write-Output "  Program Files glob -> $($_.FullName)" }
     }
-    # Glob for any version subfolder
-    $globResults = Get-ChildItem "$env:ProgramFiles\PowerShell\*\pwsh.exe" -ErrorAction SilentlyContinue
-    foreach ($g in $globResults) {
-        $loc = $g.FullName
-        if ($foundLocations -notcontains $loc) { $foundLocations.Add($loc) }
-        Write-Output "  Program Files glob -> $loc"
-    }
-
-    # c. Microsoft Store stub
     $storeStub = "$env:LOCALAPPDATA\Microsoft\WindowsApps\pwsh.exe"
     if (Test-Path $storeStub) {
-        if ($foundLocations -notcontains $storeStub) { $foundLocations.Add($storeStub) }
+        if ($found -notcontains $storeStub) { $found.Add($storeStub) }
         Write-Output "  Microsoft Store stub -> $storeStub"
-        Write-Output "    (NOTE: This is a Store redirect stub. You may need to launch pwsh from the Start Menu first.)"
+        Write-Output "    (Store redirect stub; may need a first launch from the Start Menu.)"
     }
-
-    # d. Scoop
     $scoopPwsh = "$env:USERPROFILE\scoop\apps\pwsh\current\pwsh.exe"
-    if (Test-Path $scoopPwsh) {
-        if ($foundLocations -notcontains $scoopPwsh) { $foundLocations.Add($scoopPwsh) }
-        Write-Output "  Scoop -> $scoopPwsh"
-    }
-    if (Get-Command scoop -ErrorAction SilentlyContinue) {
-        $scoopList = scoop list pwsh 2>$null
-        if ($scoopList) { Write-Output "  scoop list pwsh -> $scoopList" }
-    }
-
-    # e. Winget
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        $wgStable = winget list --id Microsoft.PowerShell 2>$null
-        if ($wgStable) { Write-Output "  winget (stable) -> $wgStable" }
-        $wgPreview = winget list --id Microsoft.PowerShell.Preview 2>$null
-        if ($wgPreview) { Write-Output "  winget (preview) -> $wgPreview" }
-    }
-
-    # f. PATH scan
-    $pathEntries = $env:PATH -split ';'
-    foreach ($entry in $pathEntries) {
+    if ((Test-Path $scoopPwsh) -and ($found -notcontains $scoopPwsh)) { $found.Add($scoopPwsh); Write-Output "  Scoop -> $scoopPwsh" }
+    foreach ($entry in ($env:PATH -split ';')) {
         if (-not $entry) { continue }
         $candidate = Join-Path $entry "pwsh.exe"
-        if (Test-Path $candidate) {
-            if ($foundLocations -notcontains $candidate) { $foundLocations.Add($candidate) }
-            Write-Output "  PATH scan -> $candidate"
-        }
+        if ((Test-Path $candidate) -and ($found -notcontains $candidate)) { $found.Add($candidate); Write-Output "  PATH scan -> $candidate" }
     }
-
-    # g. Registry uninstall keys
-    $regPaths = @(
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
-    foreach ($rp in $regPaths) {
+    foreach ($rp in @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*","HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*")) {
         try {
-            $entries = Get-ItemProperty $rp -ErrorAction SilentlyContinue |
-                Where-Object { $_.DisplayName -like "*PowerShell*" }
-            foreach ($e in $entries) {
-                $info = "$($e.DisplayName) v$($e.DisplayVersion)"
-                if ($e.InstallLocation) { $info += " -> $($e.InstallLocation)" }
+            Get-ItemProperty $rp -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*PowerShell*" } | ForEach-Object {
+                $info = "$($_.DisplayName) v$($_.DisplayVersion)"
+                if ($_.InstallLocation) { $info += " -> $($_.InstallLocation)" }
                 Write-Output "  Registry -> $info"
-                if ($e.InstallLocation) {
-                    $regExe = Join-Path $e.InstallLocation "pwsh.exe"
-                    if ((Test-Path $regExe) -and ($foundLocations -notcontains $regExe)) {
-                        $foundLocations.Add($regExe)
-                    }
+                if ($_.InstallLocation) {
+                    $regExe = Join-Path $_.InstallLocation "pwsh.exe"
+                    if ((Test-Path $regExe) -and ($found -notcontains $regExe)) { $found.Add($regExe) }
                 }
             }
-        } catch {
-            Write-Output "  Registry scan ($rp): access denied or error — $($_.Exception.Message)"
-        }
+        } catch { Write-Output "  Registry scan ($rp): $($_.Exception.Message)" }
     }
-
     Write-Output ""
-    if ($foundLocations.Count -gt 0) {
-        Write-Output "SUMMARY: PowerShell 7+ found at $($foundLocations.Count) location(s):"
-        foreach ($loc in $foundLocations) { Write-Output "  - $loc" }
-        Write-Output ""
-        Write-Output "RECOMMENDATION: Switch to pwsh for the best experience."
-        Write-Output "  Run 'pwsh' from any terminal to start it."
-        Write-Output "  Official guide: https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows"
+    if ($found.Count -gt 0) {
+        Write-Output "SUMMARY: PowerShell 7+ found at $($found.Count) location(s):"
+        foreach ($loc in $found) { Write-Output "  - $loc" }
+        Write-Output "RECOMMENDATION: run 'pwsh' to switch."
     } else {
-        Write-Output "SUMMARY: PowerShell 7+ was NOT found on this system."
-        Write-Output ""
-        Write-Output "RECOMMENDATION: Install PowerShell 7+ for the best experience."
-        Write-Output "  Option 1 (recommended): scoop install pwsh"
-        Write-Output "  Option 2: winget install --id Microsoft.PowerShell"
-        Write-Output "  Option 3: Download MSI from https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows"
+        Write-Output "SUMMARY: PowerShell 7+ NOT found."
+        Write-Output "RECOMMENDATION: scoop install pwsh   (or: winget install --id Microsoft.PowerShell)"
     }
 }
 
-Section "7. YAZI_FILE_ONE status"
-# User scope
-$yfoUser = [Environment]::GetEnvironmentVariable("YAZI_FILE_ONE", "User")
-if ($yfoUser) {
-    Write-Output "YAZI_FILE_ONE (User scope): $yfoUser"
-    if (Test-Path $yfoUser) {
-        Write-Output "  -> File EXISTS at that path."
-    } else {
-        Write-Output "  -> WARNING: File does NOT exist at that path. Previews will not work."
+Invoke-Check "8. YAZI_FILE_ONE status" {
+    foreach ($scope in "User","Machine") {
+        $v = [Environment]::GetEnvironmentVariable("YAZI_FILE_ONE", $scope)
+        if ($v) {
+            Write-Output "YAZI_FILE_ONE ($scope scope): $v"
+            if (Test-Path $v) { Write-Output "  -> File EXISTS." } else { Write-Output "  -> WARNING: file does NOT exist. Previews will not work." }
+        } else { Write-Output "YAZI_FILE_ONE ($scope scope): NOT SET" }
     }
-} else {
-    Write-Output "YAZI_FILE_ONE (User scope): NOT SET"
+    if ($env:YAZI_FILE_ONE) { Write-Output "YAZI_FILE_ONE (current session): $env:YAZI_FILE_ONE" }
+    else { Write-Output "YAZI_FILE_ONE (current session): NOT SET" }
 }
-# Machine scope
-$yfoMachine = [Environment]::GetEnvironmentVariable("YAZI_FILE_ONE", "Machine")
-if ($yfoMachine) {
-    Write-Output "YAZI_FILE_ONE (Machine scope): $yfoMachine"
-    if (Test-Path $yfoMachine) {
-        Write-Output "  -> File EXISTS at that path."
-    } else {
-        Write-Output "  -> WARNING: File does NOT exist at that path."
+
+Invoke-Check "9. Nerd Font + terminal font" {
+    # Installed fonts: scoop-managed first, then the per-user/system font dirs
+    $hit = $false
+    if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        $fontPkgs = scoop list 2>$null | Select-String -Pattern "-NF|Nerd|Maple-Mono"
+        if ($fontPkgs) { Write-Output "scoop font packages: $fontPkgs"; $hit = $true }
     }
-} else {
-    Write-Output "YAZI_FILE_ONE (Machine scope): NOT SET"
+    foreach ($dir in "$env:LOCALAPPDATA\Microsoft\Windows\Fonts", "$env:windir\Fonts") {
+        $files = Get-ChildItem $dir -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "NerdFont|NF|MapleMono" } | Select-Object -First 5
+        foreach ($f in $files) { Write-Output "  font file: $($f.Name)  ($dir)"; $hit = $true }
+    }
+    if (-not $hit) { Write-Output "No Nerd Font detected -> yazi's icons will render as boxes until one is installed AND selected." }
+    # Windows Terminal: which face is actually selected?
+    $wt = Get-ChildItem "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal*\LocalState\settings.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($wt) {
+        try {
+            $j = Get-Content $wt.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+            $face = $j.profiles.defaults.font.face
+            if ($face) { Write-Output "Windows Terminal default font face: $face" }
+            else { Write-Output "Windows Terminal: no default font face set (profiles may override; icons need a Nerd Font face like 'Maple Mono NF CN')." }
+        } catch { Write-Output "Windows Terminal settings.json found but could not be parsed: $($_.Exception.Message)" }
+    } else {
+        Write-Output "Windows Terminal settings.json not found (different terminal? set its font to a Nerd Font manually)."
+    }
 }
-# Current session
-$yfoSession = $env:YAZI_FILE_ONE
-if ($yfoSession) {
-    Write-Output "YAZI_FILE_ONE (current session): $yfoSession"
-} else {
-    Write-Output "YAZI_FILE_ONE (current session): NOT SET"
+
+Invoke-Check "10. yazi packages (plugins / flavors)" {
+    if (Get-Command ya -ErrorAction SilentlyContinue) {
+        $pkgs = ya pkg list 2>&1 | Out-String
+        if ($pkgs.Trim()) { Write-Output $pkgs } else { Write-Output "(ya pkg list returned nothing)" }
+    } else {
+        Write-Output "Skipped — 'ya' not on PATH (it ships with yazi)."
+    }
 }
 
 Write-Output ""
-Write-Output "########## END OF REPORT — paste everything above back to Claude ##########"
-
-} catch {
-    Write-Output ""
-    Write-Output "ERROR: Diagnosis script failed unexpectedly."
-    Write-Output "What happened: $($_.Exception.Message)"
-    Write-Output "Why it matters: The diagnosis report is incomplete. We cannot determine the state of your yazi install."
-    Write-Output "What to do: Re-run this script. If it keeps failing, report this error at:"
-    Write-Output "  https://github.com/karenepitaya/yazi-windows-rescue/issues"
-}
+Write-Output "########## END OF REPORT ##########"
+Write-Output "If any section above says [CHECK FAILED], those items are UNCHECKED — do not assume they are OK."

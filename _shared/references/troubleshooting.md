@@ -10,8 +10,8 @@ Shared by /yazi-detect, /yazi-install, /yazi-config.
 - **Section 4 `YAZI_FILE_ONE : None`** → preview wiring missing; install Phase 6d sets it.
 - **NETWORK VERDICT: PROBLEM** → one or more GitHub endpoints unreachable. **Hard stop (install Phase 2 / config C0).** scoop and `ya pkg` download everything from GitHub; very common in mainland China where raw.githubusercontent.com is often blocked. See "Network / proxy" below.
 - **Execution policy `Restricted`/`AllSigned`** → scoop installer may be blocked; install Phase 6a has the fallback.
-- **pwsh section** → drives install Phase 3.
-- **Font section** → whether a Nerd Font is installed and whether Windows Terminal points at one; drives install Phase 6b/6f.
+- **Section 7 (pwsh)** → drives install Phase 3.
+- **Section 9 (font)** → whether a Nerd Font is installed and whether Windows Terminal points at one; drives install Phase 6b/6f.
 
 ## Symptom → fix
 
@@ -36,6 +36,7 @@ Shared by /yazi-detect, /yazi-install, /yazi-config.
 | `z` does nothing / errors | fzf not installed | `scoop install fzf`, fresh window |
 | `Z` does nothing / finds no dirs | zoxide not installed, profile hook missing, or database still empty | `Get-Command zoxide`; `$PROFILE` must contain `zoxide init powershell` (config C7d adds it); fresh window. A new database is empty — it fills up as you cd around for a few days. |
 | Previewer config seems ignored entirely | Known confusion: previewers belong under `[[plugin.prepend_previewers]]` in **yazi.toml**, and changes need a yazi restart (see upstream issue #3224) | Verify block location/spelling against config C6b; restart yazi |
+| Diagnosis section prints `[CHECK FAILED]` (e.g. Microsoft.PowerShell.Security failing to load on 5.1) | PS 5.1 spawned with a polluted PSModulePath (pwsh 7 module dirs leaking in); the script self-heals the path and isolates each section, but a section can still fail | The failed section's items are UNCHECKED, not OK — re-run the script in pwsh 7 for a complete report; never conclude "should be fine" about an unchecked item |
 | Install failed halfway, user wants out | — | `scripts/cleanup.ps1` — backs up + removes config, uninstalls scoop-owned yazi, prints optional deep-clean lines. Then /yazi-install fresh. |
 
 ## Network / proxy (the #1 cause of halfway failures)

@@ -57,7 +57,7 @@ Lead every step with one or two plain Chinese sentences: what, why, what they ge
 powershell -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\diagnose.ps1"
 ```
 
-Have them paste the full report.
+**Execution mode:** run it yourself if you have shell access (Claude Code); only fall back to "user runs and pastes back" when you cannot execute commands. Sections printing `[CHECK FAILED]` are UNCHECKED — treat them as unknown, never as OK; if a failed section is one the gates depend on (network, pwsh), re-run the script in pwsh 7 before judging.
 
 ### >>> STOP. No report, no Phase 2. <<<
 

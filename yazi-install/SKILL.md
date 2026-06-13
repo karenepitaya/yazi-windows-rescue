@@ -3,7 +3,6 @@ name: yazi-install
 description: Diagnose, clean up, and correctly (re)install the yazi file manager on Windows when a previous (often AI-assisted) installation left it unusable, or when installing fresh. Use WHENEVER the user says yazi was installed but won't run / won't open / can't be found / has no file previews / shows boxes or garbled icons / throws TOML parse errors, or "Claude installed yazi and it's broken", "帮我重装 yazi", "yazi 打不开/坏了/装不上". Self-contained: runs its own read-only diagnosis first (never assumes /yazi-detect ran), enforces a network gate BEFORE any deletion, standardizes on scoop, installs preview deps and a Nerd Font, writes a minimal baseline config, and verifies. On failure it always offers a one-shot cleanup so the user can start over. Configuration/theming/plugins belong to /yazi-config, which this skill points to at the end.
 license: MIT
 compatibility: Windows 10/11. Diagnosis runs on any PowerShell; install scripts require PowerShell 7+ (pwsh) and guide the user to it if missing. Needs network access to GitHub (gated up front).
-allowed-tools: Bash AskUserQuestion Read
 metadata:
   author: karenepitaya
   suite: yazi-windows-rescue
@@ -145,7 +144,8 @@ Group Policy blocks → `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Proc
 ```powershell
 pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\install-deps.ps1"
 ```
-Packages: `yazi fd imagemagick ffmpeg poppler jq git`（git 提供 4d 需要的 file.exe）。Font: adds `nerd-fonts` bucket, installs **`Maple-Mono-NF-CN`**（族名 **"Maple Mono NF CN"**，图标+中文一套字体全包，2:1 对齐）。Win10 1809+/Win11 按用户安装免管理员；更老的系统 manifest 会要求管理员——如实告知，让用户仅为字体步骤开一个管理员 pwsh。Script also auto-sets `YAZI_FILE_ONE`.
+Packages: `yazi fd ripgrep 7zip imagemagick ffmpeg poppler resvg jq git`（搜索、压缩包、图片/视频/PDF/SVG/JSON 预览；git 提供 6d 需要的 file.exe）。Font: adds `nerd-fonts` bucket, installs **`Maple-Mono-NF-CN`**（族名 **"Maple Mono NF CN"**，图标+中文一套字体全包，2:1 对齐）。Win10 1809+/Win11 按用户安装免管理员；更老的系统 manifest 会要求管理员——如实告知，让用户仅为字体步骤开一个管理员 pwsh。Script also auto-sets `YAZI_FILE_ONE`.
+The script must end with `INSTALL-DEPS: OK`. `INSTALL-DEPS: PARTIAL` or a non-zero exit means do not continue as if installation succeeded; report the missing item and follow troubleshooting.
 
 **6c. Verify binary:** `yazi --version`
 
@@ -168,7 +168,7 @@ Copy-Item "${CLAUDE_SKILL_DIR}\..\_shared\config\yazi-minimal.toml" "$cfgDir\yaz
 "Wrote minimal yazi.toml"
 ```
 
-**6f. Point the terminal at the font.** "字体装好了，但还得让终端用上它，图标才会显示。" Windows Terminal GUI（recommended, zero-risk）: `Ctrl+,` → 默认值 → 外观 → 字体 → **Maple Mono NF CN** → 保存 → 重开标签页。Other terminals: same idea, offer to look up specifics.
+**6f. Point the terminal at the font.** "字体装好了，但还得让终端用上它，图标才会显示。" Windows Terminal GUI（recommended, zero-risk）: `Ctrl+,` → 设置 → 默认值 → 外观 → 字体（勾选「显示所有字体」） → 选择 **Maple Mono NF CN** → 保存 → 重开标签页。Other terminals: same idea, offer to look up specifics.
 
 ### >>> STOP. Fresh window + font set before Phase 7. <<<
 
@@ -188,7 +188,7 @@ Copy-Item "${CLAUDE_SKILL_DIR}\..\_shared\config\yazi-minimal.toml" "$cfgDir\yaz
   ```powershell
   pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\cleanup.ps1"
   ```
-  备份并移除配置、卸载 scoop 名下的 yazi、共享工具刻意保留（脚本会列出可选的深度清理命令）。结束语：环境已干净，随时可重新 `/yazi-install`。
+  读取最后一行：只有 `CLEANUP: DONE` 才能说环境已干净；`CLEANUP: PARTIAL` 表示仍有非 scoop 副本或卸载失败，必须如实报告路径/错误，不能宣称完成。
 - 「再试试别的修法」→ 回 troubleshooting 对症走。
 - 「保持现状，我自己处理」→ 如实总结当前状态（什么装了、什么没装、备份在哪）。
 

@@ -3,7 +3,6 @@ name: yazi-config
 description: Configure, theme, and enhance an ALREADY-WORKING yazi install on Windows - turning "it runs" into "it's a polished daily driver". Use when the user asks to 配置/美化/主题/预览增强 yazi, wants the Catppuccin theme, Markdown preview with glow, fzf/zoxide jumping, handy keybindings, the `y` quit-to-cd shortcut, or says "yazi 能用了但太丑/太原始", "give me the full yazi setup", or wants to switch between a minimal and a complete configuration. PRECONDITION: yazi must be installed and runnable - this skill verifies that first and refuses (pointing to /yazi-install) if not. Re-runnable any time to switch tiers, re-personalize, or add previously skipped optional items (glow Markdown preview, fzf+zoxide jump enhancement). Theme and plugins install from a version-pinned package.toml manifest (ya pkg install) - the exact author-verified revisions, reproducible on every machine. Everything installs defensively: anything that fails to download is skipped and reported, never half-written into config.
 license: MIT
 compatibility: Windows 10/11. Requires a working yazi install (verified up front) and network access to GitHub for plugins/tools. Scripts run on any PowerShell.
-allowed-tools: Bash AskUserQuestion Read
 metadata:
   author: karenepitaya
   suite: yazi-windows-rescue
@@ -70,25 +69,21 @@ if (Test-Path $cfg) {
 ## Phase C3 — Minimal tier（if chosen; then skip to C8）
 
 ```powershell
-$cfgDir = "$env:APPDATA\yazi\config"
-Copy-Item "${CLAUDE_SKILL_DIR}\..\_shared\config\yazi-minimal.toml" "$cfgDir\yazi.toml" -Force
-foreach ($f in "theme.toml","keymap.toml") {
-    $p = Join-Path $cfgDir $f
-    if (Test-Path $p) { Remove-Item $p -Force; "已移除 $f（备份里都有）" }
-}
-"最小档写入完成"
+pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\apply-config.ps1" -Tier Minimal
 ```
 说明：增强件都收回了，备份俱在，随时可再跑本命令切回完整档。Go to C8.
 
-## Phase C4 — Complete tier: base files
+## Phase C4 — Complete tier: choose keymap language
 
-```powershell
-$cfgDir = "$env:APPDATA\yazi\config"
-Copy-Item "${CLAUDE_SKILL_DIR}\..\_shared\config\yazi-complete.toml"  "$cfgDir\yazi.toml"   -Force
-Copy-Item "${CLAUDE_SKILL_DIR}\..\_shared\config\keymap-complete.toml" "$cfgDir\keymap.toml" -Force
-"基础配置已写入（先不含主题与 Markdown 预览——装好对应组件后才会接上）"
-```
-讲解 keymap 的两条："`g h` 回家目录；**`!` 在当前目录打开 PowerShell**——逛到哪、就在哪开终端，日常价值极高。"
+First read `yazi --version`. **快捷键帮助菜单语言。** "yazi 的帮助菜单（按 `~` 或 `F1`）默认显示英文描述。套件提供 Yazi 26.5.6 官方默认键位的中文翻译；升级 Yazi 后，若版本不一致就改用英文小模板，避免旧键位覆盖新行为。"
+
+If the version is exactly 26.5.6, use `AskUserQuestion`:
+- **「中文帮助菜单（推荐，Yazi 26.5.6）」** → remember `KeymapLanguage = "zh"`.
+- 「保持英文」 → remember `KeymapLanguage = "en"`.
+
+For any other version, explain the compatibility guard and force `KeymapLanguage = "en"`; do not offer the Chinese snapshot.
+
+讲解 keymap（无论选哪个）：自定义绑定：`g h` 回家目录；**`!` 在当前目录打开 PowerShell**。个人项目目录若启用，使用 `g p`，不覆盖 Yazi 默认的 `g d`（Downloads）。
 
 ## Phase C5 — Complete tier: Markdown 预览（可选项, glow）
 
@@ -102,7 +97,7 @@ powershell -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts
 ```
 Output ends `PREVIEW-TOOLS: OK` or `PARTIAL`. PARTIAL（几乎都是网络）→ 修代理重跑，或明确告知"这项先跳过，其余继续"。Script also sets `CLICOLOR_FORCE=1`（User）— glow 被管道调用时保持彩色输出的 Windows 正确做法；新窗口才生效。
 
-**Remember the outcome**（要了且 OK / 跳过）— C6b 据此决定写不写 previewer。If skipped, piper still installs via the manifest below — 它不被 previewer 引用时是惰性的，无副作用，而且让用户以后重跑本 skill 补开 Markdown 预览时无需重新拉插件。
+**Remember the outcome** as `EnableMarkdown = true/false`. If skipped, piper still installs via the manifest below — 它不被 previewer 引用时是惰性的，无副作用，而且让用户以后重跑本 skill 补开 Markdown 预览时无需重新拉插件。
 
 ## Phase C6 — Complete tier: theme & plugin（钉死版本的清单安装）
 
@@ -119,26 +114,8 @@ Copy-Item $src $dst -Force
 ya pkg install
 ```
 
-- **成功（`$LASTEXITCODE -eq 0`）** → 立即接上主题：
-  ```powershell
-  Copy-Item "${CLAUDE_SKILL_DIR}\..\_shared\config\theme.toml" "$env:APPDATA\yazi\config\theme.toml" -Force
-  "主题已启用"
-  ```
-- **失败（几乎都是网络）** → **不写 theme.toml、不写 previewer**，如实报告，给代理指引（troubleshooting 的 Network 节），可稍后重跑本 skill 补齐。继续 C7。
-
-**C6b. 接入 Markdown previewer（仅当 C6a 成功 且 C5 选了要并且 OK）:** append（this exact block, UTF-8 no BOM）:
-  ```powershell
-  $block = @'
-
-[[plugin.prepend_previewers]]
-url = "*.md"
-run = 'piper -- glow -w=$w -s=dark "$1"'
-'@
-  [System.IO.File]::AppendAllText("$env:APPDATA\yazi\config\yazi.toml", $block, (New-Object System.Text.UTF8Encoding $false))
-  "Markdown 预览已接入"
-  ```
-  注：官方示例的 `CLICOLOR_FORCE=1` 前缀是 POSIX 写法，Windows 不适用——C5 已用持久环境变量等价替代，命令里不要加前缀。
-- 任一失败 → **绝不写 previewer block**（引用缺失组件＝启动报错）。如实报告并继续。
+- **成功（`$LASTEXITCODE -eq 0`）** → remember `EnableTheme = true`. Markdown 只有 C5 同时成功时才保持 `EnableMarkdown = true`.
+- **失败（几乎都是网络）** → remember `EnableTheme = false` and force `EnableMarkdown = false`; 如实报告，稍后生成器不会引用缺失组件。继续 C7。
 
 ## Phase C7 — Complete tier: personalize
 
@@ -147,11 +124,12 @@ run = 'piper -- glow -w=$w -s=dark "$1"'
 Get-Command code, nvim -ErrorAction SilentlyContinue | Select-Object Name, Source
 ```
 `AskUserQuestion`（检测到 code 时把 VS Code 设为推荐；都没检测到则记事本为推荐）:
-- 「VS Code」 → edit the opener line in `$env:APPDATA\yazi\config\yazi.toml`: put `{ run = 'code %s', desc = "VS Code", for = "windows", orphan = true },` FIRST, keep the notepad line after it as fallback.
-- 「Neovim」 → first line `{ run = 'nvim %s', desc = "Neovim", for = "windows", block = true },`, notepad kept as fallback.
-- 「记事本就好（保底）」 → leave as-is.
+- 「VS Code」 → remember `Editor = "code"`.
+- 「Neovim」 → remember `Editor = "nvim"`.
+- 「记事本就好（保底）」 → remember `Editor = "notepad"`.
+Do not edit TOML here. The generator keeps Notepad as fallback for VS Code and Neovim.
 
-**C7b. 常用项目目录跳转（optional）.** `AskUserQuestion`: **「跳过（推荐——以后随时可加）」**／「我有，帮我加上 `g d` 跳转」. If yes, ask for the path, then append to `keymap.toml`'s `prepend_keymap` array a line like `{ on = ["g", "d"], run = "cd D:/your/path", desc = "Go projects" },`（正斜杠）.
+**C7b. 常用项目目录跳转（optional）.** `AskUserQuestion`: **「跳过（推荐——以后随时可加）」**／「我有，帮我加上 `g p` 跳转」. If yes, ask for the path and remember it as `ProjectPath`; do not edit TOML here.
 
 **C7c. `y` 退出跳转函数.** "退出 yazi 时，PowerShell 跟着停在你最后浏览的目录——单项体验提升最大的一个。" `AskUserQuestion`: **「加上（推荐）」**／「先不用」. If yes, show the function first, then:
 ```powershell
@@ -192,6 +170,21 @@ if (-not (Select-String -Path $PROFILE -Pattern 'zoxide init' -Quiet)) {
 ```
 告知预期："新窗口生效。zoxide 的'常去目录'数据库是随你日常 cd 慢慢积累的——刚装好时按 `Z` 跳不出几个地方是正常的，用几天就顺了；`z`（fzf 模糊找）则立刻可用。"
 
+**C7e. Generate the complete config once.** Build parameters only from the remembered outcomes, then run the bundled generator:
+```powershell
+$configParams = @{
+    Tier           = "Complete"
+    KeymapLanguage = "<zh-or-en>"
+    Editor         = "<notepad-code-or-nvim>"
+}
+if (<markdown-installed-and-selected>) { $configParams.EnableMarkdown = $true }
+if (<package-install-succeeded>)       { $configParams.EnableTheme = $true }
+if (<project-path-was-provided>)       { $configParams.ProjectPath = "<exact-user-path>" }
+
+pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\apply-config.ps1" @configParams
+```
+Do not manually append, regex-edit, or reconstruct TOML. The generator starts from vendored templates, writes UTF-8 without BOM, and is safe to re-run.
+
 ## Phase C8 — Verify & teach
 
 "关掉所有 PowerShell 窗口，开一个新的（环境变量和 PROFILE 都要新窗口才生效）。"
@@ -208,6 +201,8 @@ Then **always** show the cheat sheet `../_shared/references/yazi-cheatsheet.md`�
 
 - `scripts/verify-yazi.ps1` — the C0 gate（READY/NOT-READY + NETWORK line）.
 - `scripts/install-preview-tools.ps1` — glow + CLICOLOR_FORCE（C5, optional item）.
+- `scripts/apply-config.ps1` — deterministic minimal/complete config generator; editor/project/Markdown/theme are parameters, never ad-hoc TOML edits.
+- `scripts/validate-release.ps1` — maintainer-only, non-destructive syntax/frontmatter/config-load release check.
 - `config/package.toml` — **version-pinned manifest**（piper @598cdb6, catppuccin-mocha @36c49ac — the author-verified combination; C6a installs from this via `ya pkg install`）.
-- `config/yazi-minimal.toml`, `config/yazi-complete.toml`, `config/keymap-complete.toml`, `config/theme.toml` — vendored tier templates.
+- `config/yazi-minimal.toml`, `config/yazi-complete.toml`, `config/keymap-zh.toml`, `config/keymap-complete.toml`, `config/theme.toml` — vendored tier templates. (`keymap-zh.toml` = 完整中文帮助菜单 + 自定义绑定；`keymap-complete.toml` = 英文帮助 + 自定义绑定。)
 - `references/troubleshooting.md`, `references/powershell-vs-bash.md`, `references/yazi-cheatsheet.md`.

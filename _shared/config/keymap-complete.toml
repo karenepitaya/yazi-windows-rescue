@@ -1,7 +1,7 @@
 #:schema https://yazi-rs.github.io/schemas/keymap.json
 # yazi-windows-rescue: complete tier keymap.
 # Only universal, high-value additions. Personal jumps (e.g. a projects dir)
-# are appended by /yazi-config if the user asks for one.
+# are appended deterministically by scripts/apply-config.ps1.
 
 [mgr]
 prepend_keymap = [

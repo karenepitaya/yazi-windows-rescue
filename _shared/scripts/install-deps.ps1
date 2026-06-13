@@ -17,8 +17,11 @@
     fd          -> fd           (file search inside yazi)
     magick      -> imagemagick  (image previews)
     ffmpeg      -> ffmpeg       (video thumbnail previews)
+    7z          -> 7zip         (archive preview and extraction)
     pdftoppm    -> poppler      (PDF previews)
     jq          -> jq           (JSON pretty previews)
+    rg          -> ripgrep      (file content search)
+    resvg       -> resvg        (SVG previews)
     git         -> git          (provides file.exe used for MIME detection)
   Plus a Nerd Font:
     Maple-Mono-NF-CN -> nerd-fonts/Maple-Mono-NF-CN   (icons + CJK; what yazi draws in the file list)
@@ -40,6 +43,8 @@ try {
     $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
     chcp 65001 > $null
 } catch { }
+
+$setupOk = $true
 
 # --- Soft PowerShell 7+ check: guide, don't just fail ---
 if ($PSVersionTable.PSVersion.Major -lt 6) {
@@ -65,7 +70,8 @@ if ($PSVersionTable.PSVersion.Major -lt 6) {
     }
     Write-Output ""
     Write-Output "(Nothing was installed or changed. This was only a version check.)"
-    return
+    Write-Output "INSTALL-DEPS: PARTIAL"
+    exit 1
 }
 
 try {
@@ -74,7 +80,8 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
     Write-Output "ERROR: scoop is not installed yet. Install scoop first (run the scoop install step in the yazi-install skill first), then re-run this."
     Write-Output "  Quick install: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser; Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression"
     Write-Output "  Scoop docs: https://scoop.sh/"
-    return
+    Write-Output "INSTALL-DEPS: PARTIAL"
+    exit 1
 }
 
 # command-name -> @(scoop-package, human description)
@@ -83,8 +90,11 @@ $deps = [ordered]@{
     "fd"       = @("fd",          "file search inside yazi")
     "magick"   = @("imagemagick", "image previews")
     "ffmpeg"   = @("ffmpeg",      "video thumbnail previews")
+    "7z"       = @("7zip",        "archive preview and extraction")
     "pdftoppm" = @("poppler",     "PDF previews")
     "jq"       = @("jq",          "JSON pretty previews")
+    "rg"       = @("ripgrep",     "file content search")
+    "resvg"    = @("resvg",       "SVG previews")
     "git"      = @("git",         "provides file.exe for MIME detection")
 }
 
@@ -124,7 +134,8 @@ if ($missingPkgs.Count -eq 0) {
             Write-Output "Why it matters: Without the main bucket, scoop cannot find most packages (yazi, fd, jq, etc.)."
             Write-Output "What to do: Run 'scoop bucket add main' manually. If it fails, check your network/proxy settings."
             Write-Output "  -> Scoop proxy docs: https://github.com/ScoopInstaller/Scoop/wiki/Using-Scoop-behind-a-proxy"
-            return
+            Write-Output "INSTALL-DEPS: PARTIAL"
+            exit 1
         }
     }
 
@@ -136,6 +147,7 @@ if ($missingPkgs.Count -eq 0) {
     Write-Output ""
 
     if ($installExitCode -ne 0) {
+        $setupOk = $false
         Write-Output "WARNING: scoop install finished with exit code $installExitCode. Some packages may have failed."
         Write-Output "What to do: Re-run this script to check which packages are still missing."
         Write-Output "  If a specific package keeps failing, try installing it manually:"
@@ -174,6 +186,7 @@ if ($fontAlreadyInstalled) {
         Write-Output "Adding the 'nerd-fonts' scoop bucket..."
         scoop bucket add nerd-fonts
         if ($LASTEXITCODE -ne 0) {
+            $setupOk = $false
             Write-Output "WARNING: could not add the 'nerd-fonts' bucket (network/proxy?). Skipping font install."
             Write-Output "  yazi will still work; its icons will look wrong until a Nerd Font is installed + selected."
         }
@@ -185,6 +198,7 @@ if ($fontAlreadyInstalled) {
         scoop install "nerd-fonts/$fontPkg"
         $fontExit = $LASTEXITCODE
         if ($fontExit -ne 0) {
+            $setupOk = $false
             Write-Output ""
             Write-Output "WARNING: the font install did not complete cleanly (exit code $fontExit)."
             Write-Output "  - On Windows 10 (1809+) and Windows 11, fonts install for your user WITHOUT admin rights."
@@ -197,7 +211,7 @@ if ($fontAlreadyInstalled) {
 }
 Write-Output ""
 Write-Output "IMPORTANT (manual, one-time): installing the font is NOT enough — set your terminal to USE it."
-Write-Output "  Windows Terminal: Settings (Ctrl+,) -> Profiles -> Defaults -> Appearance -> Font face -> choose '$fontFace'."
+Write-Output "  Windows Terminal: Settings (Ctrl+,) -> Defaults -> Appearance -> Font (check 'Show all fonts') -> choose '$fontFace'."
 Write-Output "  Other terminals (Alacritty / WezTerm / Ghostty / etc.): set their font to '$fontFace'."
 Write-Output "  Until you do this, yazi will keep showing tofu boxes instead of icons."
 
@@ -251,6 +265,7 @@ if ($existingYfo -and (Test-Path $existingYfo)) {
         Write-Output "SUCCESS: YAZI_FILE_ONE set to: $fileExe"
         Write-Output "IMPORTANT: Close ALL PowerShell windows and open a new one for this to take effect."
     } else {
+        $setupOk = $false
         Write-Output ""
         Write-Output "Could not auto-detect git's file.exe."
         Write-Output "Why it matters: Without file.exe, yazi cannot detect file types for previews."
@@ -265,6 +280,32 @@ if ($existingYfo -and (Test-Path $existingYfo)) {
     }
 }
 
+$stillMissing = @()
+foreach ($cmd in $deps.Keys) {
+    if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
+        $stillMissing += $cmd
+    }
+}
+if ($stillMissing.Count -gt 0) {
+    $setupOk = $false
+    Write-Output ""
+    Write-Output "Still missing after install attempt: $($stillMissing -join ', ')"
+}
+
+$finalYfo = [Environment]::GetEnvironmentVariable("YAZI_FILE_ONE", "User")
+if (-not $finalYfo -or -not (Test-Path $finalYfo)) {
+    $setupOk = $false
+}
+
+Write-Output ""
+if ($setupOk) {
+    Write-Output "INSTALL-DEPS: OK"
+    exit 0
+} else {
+    Write-Output "INSTALL-DEPS: PARTIAL"
+    exit 1
+}
+
 } catch {
     Write-Output ""
     Write-Output "ERROR: install-deps.ps1 failed unexpectedly."
@@ -272,4 +313,6 @@ if ($existingYfo -and (Test-Path $existingYfo)) {
     Write-Output "Why it matters: Dependencies may be partially installed. Your yazi setup may be incomplete."
     Write-Output "What to do: Re-run this script. If it keeps failing, report this error at:"
     Write-Output "  https://github.com/karenepitaya/yazi-windows-rescue/issues"
+    Write-Output "INSTALL-DEPS: PARTIAL"
+    exit 1
 }

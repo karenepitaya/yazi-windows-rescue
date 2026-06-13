@@ -16,7 +16,7 @@ image_delay = 30
 
 [opener]
 edit = [
-    # Default safe editor. /yazi-config replaces/extends this line based on
-    # the user's choice (VS Code / Neovim), keeping notepad as the fallback.
+    # Default safe editor. scripts/apply-config.ps1 rewrites this section
+    # deterministically for VS Code / Neovim while keeping Notepad fallback.
     { run = 'notepad %s', desc = "Notepad", for = "windows", orphan = true },
 ]

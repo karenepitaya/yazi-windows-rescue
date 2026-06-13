@@ -23,7 +23,7 @@ Write-Output "===== preview tools setup ====="
 if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
     Write-Output "ERROR: scoop not found. Run /yazi-install first (it sets up scoop)."
     Write-Output "PREVIEW-TOOLS: PARTIAL"
-    return
+    exit 1
 }
 
 # glow (markdown rendering in the preview pane, via the piper plugin)
@@ -52,4 +52,10 @@ if ($cc -eq "1") {
     Write-Output "IMPORTANT: takes effect in NEW terminal windows only."
 }
 
-if ($ok) { Write-Output "PREVIEW-TOOLS: OK" } else { Write-Output "PREVIEW-TOOLS: PARTIAL" }
+if ($ok) {
+    Write-Output "PREVIEW-TOOLS: OK"
+    exit 0
+} else {
+    Write-Output "PREVIEW-TOOLS: PARTIAL"
+    exit 1
+}

@@ -61,16 +61,19 @@ function Invoke-Check($title, [scriptblock]$block) {
 function Test-Endpoint($name, $url) {
     try {
         $null = Invoke-WebRequest -Uri $url -Method Head -TimeoutSec 8 -UseBasicParsing -ErrorAction Stop
-        Write-Output ("  [OK]      {0,-26} {1}" -f $name, $url)
+        # Write-Host keeps human-readable status out of the function's return
+        # pipeline, so the caller receives one real Boolean instead of an array
+        # of status strings plus a Boolean (a non-empty array is always truthy).
+        Write-Host ("  [OK]      {0,-26} {1}" -f $name, $url)
         return $true
     } catch {
         $resp = $_.Exception.Response
         if ($null -ne $resp) {
-            Write-Output ("  [OK*]     {0,-26} {1}  (reached host; non-2xx status)" -f $name, $url)
+            Write-Host ("  [OK*]     {0,-26} {1}  (reached host; non-2xx status)" -f $name, $url)
             return $true
         } else {
-            Write-Output ("  [BLOCKED] {0,-26} {1}" -f $name, $url)
-            Write-Output ("            reason: {0}" -f $_.Exception.Message)
+            Write-Host ("  [BLOCKED] {0,-26} {1}" -f $name, $url)
+            Write-Host ("            reason: {0}" -f $_.Exception.Message)
             return $false
         }
     }
@@ -119,7 +122,12 @@ Invoke-Check "3. Config folder contents" {
 
 Invoke-Check "4. yazi self-check (yazi --debug, first 60 lines)" {
     if ($script:yaziCmd) {
-        (yazi --debug 2>&1 | Select-Object -First 60 | Out-String) | Write-Output
+        $debugOutput = yazi --debug 2>&1
+        $debugExit = $LASTEXITCODE
+        ($debugOutput | Select-Object -First 60 | Out-String) | Write-Output
+        if ($debugExit -ne 0) {
+            Write-Output "WARNING: yazi --debug exited with code $debugExit."
+        }
     } else {
         Write-Output "Skipped — yazi is not on PATH."
     }
@@ -132,7 +140,7 @@ Invoke-Check "5. NETWORK — can we reach the servers scoop/ya download from?" {
     $net_raw   = Test-Endpoint "raw.githubusercontent.com"  "https://raw.githubusercontent.com"
     $net_obj   = Test-Endpoint "objects.githubusercontent.com" "https://objects.githubusercontent.com"
     Write-Output ""
-    if ($net_gh -and $net_raw -and $net_scoop) {
+    if ($net_gh -and $net_raw -and $net_scoop -and $net_obj) {
         Write-Output "NETWORK VERDICT: OK — the critical GitHub endpoints are reachable. Safe to install."
     } else {
         Write-Output "NETWORK VERDICT: PROBLEM — at least one critical endpoint is blocked."

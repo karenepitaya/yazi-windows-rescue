@@ -3,7 +3,6 @@ name: yazi-detect
 description: Read-only diagnosis of a yazi file manager installation on Windows. Use when the user wants to CHECK what is wrong with yazi without changing anything - e.g. "帮我看看 yazi 哪里有问题", "检测一下我的 yazi", "yazi diagnosis", "why is yazi broken", or before deciding whether to reinstall. Reports install method, config state, preview wiring (YAZI_FILE_ONE), Nerd Font status, PowerShell version, and real HTTPS network reachability to the GitHub endpoints scoop needs. Changes and deletes NOTHING. To actually fix problems, the user should then run /yazi-install; to configure a working install, /yazi-config.
 license: MIT
 compatibility: Windows 10/11. Runs on any PowerShell (5.1 or 7+).
-allowed-tools: Bash Read
 metadata:
   author: karenepitaya
   suite: yazi-windows-rescue

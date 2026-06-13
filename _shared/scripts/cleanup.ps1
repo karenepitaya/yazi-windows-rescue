@@ -8,7 +8,8 @@
   - Leaves shared tools (git, ffmpeg, scoop itself, fonts) alone: they are
     harmless standalone and may be used by other things
   Prints what it did, plus optional removal commands for everything else.
-  Ends with: CLEANUP: DONE
+  Ends with CLEANUP: DONE only when no yazi executable remains on PATH.
+  Otherwise ends with CLEANUP: PARTIAL and returns exit code 1.
 .NOTES
   Works on Windows PowerShell 5.1 and pwsh 7+.
 #>
@@ -21,6 +22,7 @@ try {
 try {
 
 Write-Output "===== yazi cleanup / reset ====="
+$cleanupOk = $true
 
 # 1. Backup + remove config
 $cfg = "$env:APPDATA\yazi\config"
@@ -44,10 +46,14 @@ if ($scoopHasYazi) {
     Write-Output "yazi: scoop owns it -> uninstalling..."
     scoop uninstall yazi
     if ($LASTEXITCODE -eq 0) { Write-Output "yazi: uninstalled." }
-    else { Write-Output "WARNING: scoop uninstall yazi exited $LASTEXITCODE. Re-run, or check 'scoop list'." }
+    else {
+        $cleanupOk = $false
+        Write-Output "WARNING: scoop uninstall yazi exited $LASTEXITCODE. Re-run, or check 'scoop list'."
+    }
 } else {
     $yaziCmd = Get-Command yazi -ErrorAction SilentlyContinue
     if ($yaziCmd) {
+        $cleanupOk = $false
         Write-Output "yazi: found at $($yaziCmd.Source) but scoop does not own it."
         Write-Output "  -> NOT deleting automatically. If you want it gone, confirm the path and remove it yourself,"
         Write-Output "     or tell Claude and it will walk you through it."
@@ -59,18 +65,31 @@ if ($scoopHasYazi) {
 # 3. What we deliberately keep, and how to remove it if you insist
 Write-Output ""
 Write-Output "Kept on purpose (harmless, possibly used elsewhere):"
-Write-Output "  - scoop itself, git, ffmpeg, imagemagick, poppler, fd, jq, glow, the Nerd Font"
+Write-Output "  - scoop itself, git, ffmpeg, 7zip, imagemagick, poppler, fd, ripgrep, resvg, jq, glow, the Nerd Font"
 Write-Output "  - YAZI_FILE_ONE / CLICOLOR_FORCE environment variables"
 Write-Output "Optional removal commands if you want a deeper clean:"
-Write-Output "  scoop uninstall glow fd jq poppler imagemagick ffmpeg"
+Write-Output "  scoop uninstall glow fd ripgrep resvg jq poppler imagemagick ffmpeg 7zip"
 Write-Output '  [Environment]::SetEnvironmentVariable("YAZI_FILE_ONE", $null, "User")'
 Write-Output '  [Environment]::SetEnvironmentVariable("CLICOLOR_FORCE", $null, "User")'
 
 Write-Output ""
-Write-Output "CLEANUP: DONE - you now have a clean slate. Run /yazi-install to start fresh."
+$remaining = Get-Command yazi -ErrorAction SilentlyContinue
+if ($remaining) {
+    $cleanupOk = $false
+    Write-Output "WARNING: yazi is still on PATH at $($remaining.Source)"
+}
+
+if ($cleanupOk) {
+    Write-Output "CLEANUP: DONE - yazi config is removed and no yazi executable remains on PATH."
+    exit 0
+} else {
+    Write-Output "CLEANUP: PARTIAL - config was handled, but yazi was not fully removed. Review the warning above."
+    exit 1
+}
 
 } catch {
     Write-Output ""
     Write-Output "ERROR: cleanup.ps1 failed unexpectedly: $($_.Exception.Message)"
     Write-Output "Report at: https://github.com/karenepitaya/yazi-windows-rescue/issues"
+    exit 1
 }

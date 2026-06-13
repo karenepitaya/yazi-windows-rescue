@@ -38,7 +38,8 @@ try {
     if ($existing -and (Test-Path $existing)) {
         Write-Output "YAZI_FILE_ONE is already set and valid: $existing"
         Write-Output "No changes needed."
-        return
+        Write-Output "YAZI-FILE-ONE: OK"
+        exit 0
     }
 
     $fileExe = $null
@@ -85,6 +86,8 @@ try {
         Write-Output ""
         Write-Output "IMPORTANT: Close ALL PowerShell windows and open a new one."
         Write-Output "The environment variable only takes effect in a fresh session."
+        Write-Output "YAZI-FILE-ONE: OK"
+        exit 0
     } else {
         Write-Output ""
         Write-Output "ERROR: Could not find git's file.exe on this system."
@@ -99,6 +102,8 @@ try {
         Write-Output '  if (Test-Path $f) { [Environment]::SetEnvironmentVariable("YAZI_FILE_ONE", $f, "User"); "Set OK" } else { "file.exe not found — is git installed via scoop?" }'
         Write-Output ""
         Write-Output "After setting, close ALL PowerShell windows and open a new one."
+        Write-Output "YAZI-FILE-ONE: FAILED"
+        exit 1
     }
 
 } catch {
@@ -108,4 +113,6 @@ try {
     Write-Output "What to do: Try setting YAZI_FILE_ONE manually:"
     Write-Output '  [Environment]::SetEnvironmentVariable("YAZI_FILE_ONE", "$env:USERPROFILE\scoop\apps\git\current\usr\bin\file.exe", "User")'
     Write-Output "Then close all PowerShell windows and open a new one."
+    Write-Output "YAZI-FILE-ONE: FAILED"
+    exit 1
 }

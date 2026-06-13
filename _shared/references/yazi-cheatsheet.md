@@ -74,3 +74,5 @@
 | `Q` | 退出且不切换目录（配合 `y` 包装命令时有区别） |
 
 > 如果装了 Phase 6c 的 `y` 快捷命令：用 `y` 启动 yazi，按 `q` 退出时 PowerShell 会切换到你最后浏览的目录；按 `Q` 退出则停在原地。
+
+安装套件还会准备 `7zip`（压缩包）、`resvg`（SVG）、`ffmpeg`（视频）、`poppler`（PDF）、ImageMagick（图片）和 `jq`（JSON）等预览工具。

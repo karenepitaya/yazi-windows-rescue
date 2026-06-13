@@ -18,11 +18,14 @@ Shared by /yazi-detect, /yazi-install, /yazi-config.
 | Symptom | Cause | Fix |
 |---|---|---|
 | File rows show **□ boxes / garbage** instead of icons | Nerd Font not SELECTED in the terminal (most common leftover) | Confirm install (`scoop list Maple-Mono-NF-CN`), set terminal font face to **`Maple Mono NF CN`** (install Phase 6f), reopen terminal. Installing ≠ selecting. |
-| Icons still boxes after selecting font | Terminal not restarted, or wrong face / wrong profile scope | Fully close & reopen. In Windows Terminal set it under **默认值 → 外观**, face exactly "Maple Mono NF CN". |
+| Icons still boxes after selecting font | Terminal not restarted, or wrong face / wrong profile scope | Fully close & reopen. In Windows Terminal: 设置 → 默认值 → 外观 → 字体（勾选「显示所有字体」）, face exactly "Maple Mono NF CN". |
 | 中文文件名和图标显示 | — | Maple Mono NF CN 自带完整 CJK，图标与中文同字体渲染（2:1 对齐），无需回退。若仍异常，确认选用的是 NF CN 变体而不是无 CN 的 Maple Mono。 |
 | Previews blank, `$env:YAZI_FILE_ONE` empty | Window not reopened after setting the env var | Close ALL PowerShell windows, open fresh, retry |
 | `TOML parse error` in `yazi --debug` | A config write didn't take, or manual edit broke syntax | Re-run the exact write step (install 6e or config C3/C4); compare against the vendored template |
 | Only one media type fails (e.g. PDFs) | That dependency missing | `Get-Command pdftoppm, magick, ffmpeg -ErrorAction SilentlyContinue \| Select-Object Name, Source` then `scoop install` the missing one |
+| Archives do not preview/extract | `7zip` / `7z` is missing | `scoop install 7zip`, then restart yazi |
+| `S` content search fails | `ripgrep` / `rg` is missing | `scoop install ripgrep` |
+| SVG preview is blank | `resvg` is missing | `scoop install resvg`, then restart yazi |
 | Everything blank, `Adapter` = `Sixel`, `width: 0` | Known cosmetic detail on Windows, NOT the problem | Recheck config-load and YAZI_FILE_ONE first |
 | scoop not found right after install | PATH not refreshed | Fresh window |
 | Script refuses, asks for PowerShell 7 | Running 5.1 | `scoop install pwsh` (recommended) or `winget install --id Microsoft.PowerShell`, then `pwsh` and re-run |
@@ -31,13 +34,13 @@ Shared by /yazi-detect, /yazi-install, /yazi-config.
 | YAZI_FILE_ONE set but file missing | git uninstalled / path changed | `scoop install git` then re-run the script |
 | **Markdown preview not rendering (config tier)** | piper or glow missing, or previewer block written without them | `ya pkg list` should show `yazi-rs/plugins:piper`; `Get-Command glow`. Install the missing piece, ensure the previewer block exists in yazi.toml, restart yazi. Re-running /yazi-config repairs this safely. |
 | Markdown preview is colorless | `CLICOLOR_FORCE` not set or window not reopened | `[Environment]::GetEnvironmentVariable("CLICOLOR_FORCE","User")` should be `1` (config C5 sets it); fresh window |
-| **Theme didn't change** | `ya pkg install` failed (network) or theme.toml has extra keys | `ya pkg list` should show the flavor; theme.toml must contain ONLY `[flavor]` / `dark = "catppuccin-mocha"`; reopen yazi |
+| **Theme didn't change** | `ya pkg install` failed (network) or theme.toml is invalid | `ya pkg list` should show the flavor; theme.toml should only select the flavor for `dark` and `light`; reopen yazi |
 | `ya pkg install` / `ya pkg add` errors | Network/proxy, or `ya` not on PATH | Fix proxy (below); `ya --version` (ships with yazi). The manifest (`package.toml`) must be the suite's vendored one for pinned installs. |
 | `z` does nothing / errors | fzf not installed | `scoop install fzf`, fresh window |
 | `Z` does nothing / finds no dirs | zoxide not installed, profile hook missing, or database still empty | `Get-Command zoxide`; `$PROFILE` must contain `zoxide init powershell` (config C7d adds it); fresh window. A new database is empty — it fills up as you cd around for a few days. |
 | Previewer config seems ignored entirely | Known confusion: previewers belong under `[[plugin.prepend_previewers]]` in **yazi.toml**, and changes need a yazi restart (see upstream issue #3224) | Verify block location/spelling against config C6b; restart yazi |
 | Diagnosis section prints `[CHECK FAILED]` (e.g. Microsoft.PowerShell.Security failing to load on 5.1) | PS 5.1 spawned with a polluted PSModulePath (pwsh 7 module dirs leaking in); the script self-heals the path and isolates each section, but a section can still fail | The failed section's items are UNCHECKED, not OK — re-run the script in pwsh 7 for a complete report; never conclude "should be fine" about an unchecked item |
-| Install failed halfway, user wants out | — | `scripts/cleanup.ps1` — backs up + removes config, uninstalls scoop-owned yazi, prints optional deep-clean lines. Then /yazi-install fresh. |
+| Install failed halfway, user wants out | — | Run `scripts/cleanup.ps1`. Continue only on `CLEANUP: DONE`; `CLEANUP: PARTIAL` means a non-Scoop copy or failed uninstall remains and must be handled explicitly. |
 
 ## Network / proxy (the #1 cause of halfway failures)
 
@@ -52,7 +55,7 @@ Never switch away from scoop to "get around" a network problem.
 ## Nerd Font (two steps, both required)
 
 1. **Install** — install-deps.ps1 adds the `nerd-fonts` bucket and installs `Maple-Mono-NF-CN` (per-user on Win10 1809+/Win11, no admin).
-2. **Select** — Windows Terminal: Ctrl+, → 默认值 → 外观 → 字体 → "Maple Mono NF CN", reopen.
+2. **Select** — Windows Terminal: Ctrl+, → 设置 → 默认值 → 外观 → 字体（勾选「显示所有字体」） → "Maple Mono NF CN", reopen.
 
 Boxes in yazi's UI with a working install = step 2 was skipped.
 
@@ -77,6 +80,6 @@ chcp 65001 > $null
 Key facts:
 - yazi ships complete defaults; user config only overrides.
 - Windows previews need git's `file.exe` via `YAZI_FILE_ONE`; docs advise against the standalone scoop/choco `file` package.
-- A flavor = `ya pkg add yazi-rs/flavors:<name>` + theme.toml containing ONLY `[flavor]`.
+- A flavor = `ya pkg add yazi-rs/flavors:<name>` + a minimal theme.toml using `[flavor]`.
 - piper's official glow example uses a POSIX env prefix (`CLICOLOR_FORCE=1 glow…`); on Windows set CLICOLOR_FORCE=1 as a persistent User env var instead and drop the prefix.
 - Config section rename `[manager]` → `[mgr]` happened across versions — keep config minimal, verify against current docs.

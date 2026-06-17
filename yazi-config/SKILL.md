@@ -185,6 +185,72 @@ pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\apply
 ```
 Do not manually append, regex-edit, or reconstruct TOML. The generator starts from vendored templates, writes UTF-8 without BOM, and is safe to re-run.
 
+## Phase C-terminal — Terminal enhancements（optional, complete tier only）
+
+"终端本身也可以增强——现代化的 ls/cat、fzf 模糊查找、智能 cd、好看的提示符、Windows Terminal 快捷键。这套配置和 yazi 独立，即使不用 yazi 也能受益。" `AskUserQuestion`:
+- **「全部配上（推荐——体验飞升）」**
+- 「只写 profile block（ls/cat/fzf/zoxide）」
+- 「跳过，保持原样」
+
+If "全部配上" or "只写 profile block":
+
+**C-terminal-a. Profile block.** "在 PowerShell 配置文件里写入一段标记块，实现：`ls` 带图标、`cat` 语法高亮、fzf 模糊查找（Ctrl+R 历史、Ctrl+T 文件）、zoxide 智能 cd、starship 提示符、y 函数（退出 yazi 跳转目录+IME 修复）。整块可一键删除。"
+
+```powershell
+$profilePath = $PROFILE
+$block = Get-Content "${CLAUDE_SKILL_DIR}\..\_shared\scripts\profile-block.ps1" -Raw -Encoding UTF8
+$startMarker = "# >>> terminal-boost >>>"
+$endMarker = "# <<< terminal-boost <<<"
+
+if (-not (Test-Path $profilePath)) {
+    New-Item -ItemType File -Path $profilePath -Force | Out-Null
+    "Created $profilePath"
+}
+
+# Backup
+$ts = Get-Date -Format "yyyyMMdd-HHmmss"
+Copy-Item $profilePath "$profilePath.bak-$ts"
+"Backed up to: $profilePath.bak-$ts"
+
+$content = Get-Content $profilePath -Raw -Encoding UTF8
+if ($content -match [regex]::Escape($startMarker)) {
+    # Replace existing block
+    $pattern = "(?s)" + [regex]::Escape($startMarker) + ".*?" + [regex]::Escape($endMarker)
+    $newContent = [regex]::Replace($content, $pattern, $block)
+    Set-Content $profilePath $newContent -NoNewline -Encoding UTF8
+    "Replaced existing terminal-boost block in $profilePath"
+} else {
+    # Append block
+    $newContent = $content.TrimEnd() + "`n`n" + $block
+    Set-Content $profilePath $newContent -NoNewline -Encoding UTF8
+    "Appended terminal-boost block to $profilePath"
+}
+```
+
+If "全部配上":
+
+**C-terminal-b. Windows Terminal keybindings（if Windows Terminal detected）.** 检测 WT settings.json 是否存在：
+```powershell
+$wtSettings = Get-ChildItem "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal*\LocalState\settings.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+```
+If found, "用 vim 风格的快捷键管理面板：Alt+hjkl 切换焦点、Alt+Shift+hjkl 调整大小、Ctrl+W 关闭面板。只改快捷键，不动你的配色和配置。" `AskUserQuestion`:
+- **「应用（推荐）」**
+- 「不改」
+
+If yes: backup the settings.json, read it, replace only the `keybindings` array with the contents of `_shared/config/wt-keybindings.json`, write back. Only touch `keybindings` — schemes, themes, profiles stay as-is.
+
+**C-terminal-c. git-delta（if delta was installed）.** "git-delta 让 git diff 输出更漂亮——语法高亮、行号、侧边导航。" `AskUserQuestion`:
+- **「设为 git 全局 pager（推荐）」**
+- 「不改 git 配置」
+
+If yes:
+```powershell
+git config --global core.pager delta
+git config --global interactive.diffFilter "delta --color-only"
+git config --global delta.navigate true
+git config --global delta.line-numbers true
+```
+
 ## Phase C8 — Verify & teach
 
 "关掉所有 PowerShell 窗口，开一个新的（环境变量和 PROFILE 都要新窗口才生效）。"

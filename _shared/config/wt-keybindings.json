@@ -1,0 +1,66 @@
+[
+    {
+        "id": "Terminal.CopyToClipboard",
+        "keys": "ctrl+c"
+    },
+    {
+        "id": "Terminal.FindText",
+        "keys": "ctrl+shift+f"
+    },
+    {
+        "id": "Terminal.PasteFromClipboard",
+        "keys": "ctrl+v"
+    },
+    {
+        "id": "Terminal.DuplicatePaneAuto",
+        "keys": "alt+shift+d"
+    },
+    {
+        "id": "Terminal.DuplicatePaneRight",
+        "keys": "alt+shift+\\"
+    },
+    {
+        "id": "Terminal.DuplicatePaneDown",
+        "keys": "alt+minus"
+    },
+    {
+        "id": "Terminal.MoveFocusLeft",
+        "keys": "alt+h"
+    },
+    {
+        "id": "Terminal.MoveFocusDown",
+        "keys": "alt+j"
+    },
+    {
+        "id": "Terminal.MoveFocusUp",
+        "keys": "alt+k"
+    },
+    {
+        "id": "Terminal.MoveFocusRight",
+        "keys": "alt+l"
+    },
+    {
+        "id": "Terminal.ResizePaneLeft",
+        "keys": "alt+shift+h"
+    },
+    {
+        "id": "Terminal.ResizePaneDown",
+        "keys": "alt+shift+j"
+    },
+    {
+        "id": "Terminal.ResizePaneUp",
+        "keys": "alt+shift+k"
+    },
+    {
+        "id": "Terminal.ResizePaneRight",
+        "keys": "alt+shift+l"
+    },
+    {
+        "id": "Terminal.TogglePaneZoom",
+        "keys": "alt+z"
+    },
+    {
+        "id": "Terminal.ClosePane",
+        "keys": "ctrl+w"
+    }
+]

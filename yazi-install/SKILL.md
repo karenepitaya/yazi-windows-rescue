@@ -147,6 +147,16 @@ pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\insta
 Packages: `yazi fd ripgrep 7zip imagemagick ffmpeg poppler resvg jq git`（搜索、压缩包、图片/视频/PDF/SVG/JSON 预览；git 提供 6d 需要的 file.exe）。Font: adds `nerd-fonts` bucket, installs **`Maple-Mono-NF-CN`**（族名 **"Maple Mono NF CN"**，图标+中文一套字体全包，2:1 对齐）。Win10 1809+/Win11 按用户安装免管理员；更老的系统 manifest 会要求管理员——如实告知，让用户仅为字体步骤开一个管理员 pwsh。Script also auto-sets `YAZI_FILE_ONE`.
 The script must end with `INSTALL-DEPS: OK`. `INSTALL-DEPS: PARTIAL` or a non-zero exit means do not continue as if installation succeeded; report the missing item and follow troubleshooting.
 
+**6b-terminal. Terminal-boost tools（optional）.** "除了 yazi 的依赖，还有一套现代终端工具（eza 替代 ls、bat 替代 cat、starship 提示符等），能让日常命令行体验大幅提升。" `AskUserQuestion`:
+- **「装上——一步到位（推荐）」**
+- 「先不用，只装 yazi 的」
+
+If yes:
+```powershell
+pwsh -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}\..\_shared\scripts\install-terminal-tools.ps1"
+```
+Output ends `INSTALL-TERMINAL-TOOLS: OK` or `PARTIAL`. PARTIAL → report missing items; continue regardless (these are enhancements, not yazi dependencies).
+
 **6c. Verify binary:** `yazi --version`
 
 **6d. Verify YAZI_FILE_ONE:**

@@ -60,7 +60,7 @@ git clone https://github.com/karenepitaya/yazi-windows-rescue.git $src
 $dst = "$env:USERPROFILE\.claude\skills"
 New-Item -ItemType Directory -Force -Path $dst | Out-Null
 
-foreach ($name in @("yazi-detect", "yazi-install", "yazi-config", "_shared")) {
+foreach ($name in @("yazi-detect", "yazi-install", "yazi-config", "terminal-boost", "_shared")) {
     $target = Join-Path $dst $name
     if (Test-Path $target) {
         Remove-Item -LiteralPath $target -Recurse -Force
@@ -80,6 +80,7 @@ Remove-Item -LiteralPath $src -Recurse -Force
 | `/yazi-detect` | 不确定哪里出了问题，想先做检查 | 不会，只读诊断 |
 | `/yazi-install` | Yazi 没装、打不开，或想彻底重装 | 会，清理旧安装并通过 Scoop 重装 |
 | `/yazi-config` | Yazi 已经能运行，想补齐日常配置 | 会，先备份再写入配置 |
+| `/terminal-boost` | 不需要 yazi，只想增强终端体验（ls/cat/fzf/zoxide） | 会，安装工具并写入 profile block |
 
 大多数人的顺序是：
 
@@ -142,6 +143,7 @@ Remove-Item -LiteralPath $src -Recurse -Force
 %USERPROFILE%\.claude\skills\yazi-detect
 %USERPROFILE%\.claude\skills\yazi-install
 %USERPROFILE%\.claude\skills\yazi-config
+%USERPROFILE%\.claude\skills\terminal-boost
 %USERPROFILE%\.claude\skills\_shared
 ```
 
@@ -154,6 +156,8 @@ yazi-windows-rescue/
 ├── yazi-install/
 │   └── SKILL.md
 ├── yazi-config/
+│   └── SKILL.md
+├── terminal-boost/
 │   └── SKILL.md
 └── _shared/
     ├── scripts/
@@ -210,13 +214,14 @@ Inside Claude Code, run:
 /yazi-config
 ```
 
-The three commands have separate responsibilities:
+Four commands, each with a separate job:
 
 | Command | Purpose |
 | --- | --- |
 | `/yazi-detect` | Read-only diagnosis |
 | `/yazi-install` | Connectivity checks, cleanup, Scoop installation, dependencies, and verification |
 | `/yazi-config` | Backed-up minimal or complete configuration |
+| `/terminal-boost` | Modern CLI tools and terminal enhancements without yazi |
 
 The installer checks all required network endpoints before cleanup. The configurator installs components before referencing them, so failed optional components do not leave broken configuration behind.
 

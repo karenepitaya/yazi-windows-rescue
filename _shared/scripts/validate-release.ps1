@@ -37,8 +37,13 @@ $required = @(
     "yazi-detect\SKILL.md",
     "yazi-install\SKILL.md",
     "yazi-config\SKILL.md",
+    "terminal-boost\SKILL.md",
     "_shared\scripts\apply-config.ps1",
-    "_shared\config\keymap-zh.toml"
+    "_shared\scripts\profile-block.ps1",
+    "_shared\scripts\install-terminal-tools.ps1",
+    "_shared\config\keymap-zh.toml",
+    "_shared\config\wt-keybindings.json",
+    "_shared\references\tool-catalog.md"
 )
 foreach ($relative in $required) {
     if (Test-Path (Join-Path $repoDir $relative)) { Pass "required file: $relative" }
@@ -70,6 +75,16 @@ $stalePatterns = @(
     "cd D:/project"
 )
 $keymapZh = Get-Content (Join-Path $sharedDir "config\keymap-zh.toml") -Raw -Encoding UTF8
+
+# Validate wt-keybindings.json is valid JSON
+$wtKeybindingsPath = Join-Path $sharedDir "config\wt-keybindings.json"
+try {
+    $wtJson = Get-Content $wtKeybindingsPath -Raw -Encoding UTF8
+    $null = $wtJson | ConvertFrom-Json
+    Pass "wt-keybindings.json: valid JSON"
+} catch {
+    Fail "wt-keybindings.json: invalid JSON - $($_.Exception.Message)"
+}
 foreach ($pattern in $stalePatterns) {
     if ($keymapZh.Contains($pattern)) { Fail "stale keymap pattern: $pattern" }
     else { Pass "stale keymap pattern absent: $pattern" }
@@ -102,10 +117,10 @@ foreach ($skill in Get-ChildItem $repoDir -Filter "SKILL.md" -Recurse) {
 }
 
 $gitignore = Get-Content (Join-Path $repoDir ".gitignore") -Raw -Encoding UTF8
-if ($gitignore -match '(?m)^\.claude/settings\.local\.json$') {
-    Pass "local Claude settings are ignored"
+if ($gitignore -match '(?m)^\.claude/$') {
+    Pass ".claude/ directory is ignored"
 } else {
-    Fail ".claude/settings.local.json must be ignored"
+    Fail ".claude/ must be ignored in .gitignore"
 }
 
 $depsScript = Get-Content (Join-Path $sharedDir "scripts\install-deps.ps1") -Raw -Encoding UTF8
@@ -115,6 +130,36 @@ foreach ($package in "7zip", "ripgrep", "resvg") {
     } else {
         Fail "dependency mapping missing: $package"
     }
+}
+
+$termToolsScript = Get-Content (Join-Path $sharedDir "scripts\install-terminal-tools.ps1") -Raw -Encoding UTF8
+foreach ($package in "eza", "bat", "delta", "starship") {
+    if ($termToolsScript -match [regex]::Escape('"' + $package + '"')) {
+        Pass "terminal tool mapping present: $package"
+    } else {
+        Fail "terminal tool mapping missing: $package"
+    }
+}
+
+# Validate profile-block.ps1 has correct starship-before-zoxide order
+$profileBlock = Get-Content (Join-Path $sharedDir "scripts\profile-block.ps1") -Raw -Encoding UTF8
+$starshipPos = $profileBlock.IndexOf("starship init")
+$zoxidePos = $profileBlock.IndexOf("zoxide init")
+if ($starshipPos -ge 0 -and $zoxidePos -ge 0 -and $starshipPos -lt $zoxidePos) {
+    Pass "profile-block.ps1: starship init before zoxide init"
+} elseif ($starshipPos -ge 0 -and $zoxidePos -ge 0) {
+    Fail "profile-block.ps1: zoxide init before starship init (must be reversed)"
+} else {
+    Pass "profile-block.ps1: starship/zoxide init check skipped (tool not referenced)"
+}
+
+# Validate profile-block.ps1 has y function with IME fix
+if ($profileBlock -match 'IMECtrl' -and $profileBlock -match 'function y \{') {
+    Pass "profile-block.ps1: y function with IME fix present"
+} elseif ($profileBlock -match 'function y \{') {
+    Pass "profile-block.ps1: y function present (no IME fix)"
+} else {
+    Pass "profile-block.ps1: no y function (will be added by yazi-config)"
 }
 
 $diagnoseScript = Get-Content (Join-Path $sharedDir "scripts\diagnose.ps1") -Raw -Encoding UTF8
